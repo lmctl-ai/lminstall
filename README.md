@@ -101,10 +101,17 @@ all provider results even after a failure. Separate Ubuntu/macOS/Windows jobs us
 this repository's composite Action as a consumer. Artifacts and job summaries
 record versions, failures and declared unavailable reasons.
 
-Initial live results are being established; no unsupported platform is silently
-marked installed. ClaudeMock's fixture-only exception is explicit above. Additional
-upstream unattended/OS exceptions will be recorded here with actual CI evidence.
-No live model request is part of these workflows.
+[Actions 41313617951](https://github.com/lmctl-ai/lminstall/actions/runs/41313617951)
+passed on code revision 115341a: **14 native providers verified on all five targets**
+(70 successful install/repeat/status/upgrade/uninstall lifecycles), plus all three
+composite consumer jobs. ClaudeMock is the only declared exception: it is built
+into lmctl and has no standalone distribution. No native provider required an
+unattended-install OS exception on these runners. Authentication/model operation
+is separate and was not exercised; no live model request is part of the workflow.
+Exact versions and upstream failures remain in the per-job artifacts/summaries.
+
+Docs-only changes do not rerun network installers. Go code, catalog data, Action,
+workflow and test changes still run the complete live matrix.
 
 ## Manifest and development
 

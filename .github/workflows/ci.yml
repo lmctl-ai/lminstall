@@ -2,6 +2,8 @@ name: ci
 on:
   push:
     branches: [main]
+    # Documentation cannot change the installed artifacts; avoid repeating 70 network lifecycles.
+    paths-ignore: ['**/*.md', 'LICENSE']
   pull_request:
   workflow_dispatch:
 permissions:
