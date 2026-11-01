@@ -13,6 +13,7 @@ import (
 	"hash"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -174,14 +175,77 @@ func extractArchive(archive, dest string) error {
 	}
 }
 
+type releaseAsset struct {
+	Name     string `json:"name"`
+	Digest   string `json:"digest"`
+	Download string `json:"browser_download_url"`
+}
 type releaseInfo struct {
-	Tag    string `json:"tag_name"`
-	Assets []struct {
-		Name, URL, Digest string
-		Download          string `json:"browser_download_url"`
-	} `json:"assets"`
+	Tag    string         `json:"tag_name"`
+	Assets []releaseAsset `json:"assets"`
 }
 
+// GitHub's public release redirects/assets do not share the anonymous API quota.
+// Fallback still verifies the publisher's checksum file; no credentials or retries.
+func (m *Manager) publicRelease(ctx context.Context, r Recipe, dir string) (releaseInfo, error) {
+	var info releaseInfo
+	if r.Checksums == "" {
+		return info, fmt.Errorf("API unavailable and no official checksum asset declared for %s", r.Repository)
+	}
+	req, e := http.NewRequestWithContext(ctx, "HEAD", "https://github.com/"+r.Repository+"/releases/latest", nil)
+	if e != nil {
+		return info, e
+	}
+	resp, e := client.Do(req)
+	if e != nil {
+		return info, e
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return info, fmt.Errorf("public release redirect: %s", resp.Status)
+	}
+	prefix := "/" + r.Repository + "/releases/tag/"
+	if !strings.HasPrefix(resp.Request.URL.Path, prefix) {
+		return info, fmt.Errorf("unexpected official release redirect %s", resp.Request.URL)
+	}
+	info.Tag = strings.TrimPrefix(resp.Request.URL.Path, prefix)
+	if info.Tag == "" {
+		return info, fmt.Errorf("empty release tag")
+	}
+	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", strings.TrimPrefix(info.Tag, "v")), dir)
+	base := "https://github.com/" + r.Repository + "/releases/download/" + url.PathEscape(info.Tag) + "/"
+	req, e = http.NewRequestWithContext(ctx, "GET", base+url.PathEscape(r.Checksums), nil)
+	if e != nil {
+		return info, e
+	}
+	resp, e = client.Do(req)
+	if e != nil {
+		return info, e
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return info, fmt.Errorf("official checksum asset: %s", resp.Status)
+	}
+	body, e := io.ReadAll(resp.Body)
+	if e != nil {
+		return info, e
+	}
+	digest := ""
+	for _, line := range strings.Split(string(body), "\n") {
+		parts := strings.Fields(line)
+		if len(parts) >= 2 && strings.TrimPrefix(strings.Join(parts[1:], " "), "*") == name {
+			if digest != "" && digest != parts[0] {
+				return info, fmt.Errorf("ambiguous checksum for %s", name)
+			}
+			digest = parts[0]
+		}
+	}
+	if digest == "" {
+		return info, fmt.Errorf("official checksum file has no %s", name)
+	}
+	info.Assets = []releaseAsset{{Name: name, Digest: "sha256:" + digest, Download: base + url.PathEscape(name)}}
+	return info, nil
+}
 func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string) (string, string, error) {
 	req, e := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+r.Repository+"/releases/latest", nil)
 	if e != nil {
@@ -193,12 +257,19 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 		return "", "", e
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return "", "", fmt.Errorf("official release lookup for %s: %s", r.Repository, resp.Status)
-	}
 	var release releaseInfo
-	if e = json.NewDecoder(resp.Body).Decode(&release); e != nil {
-		return "", "", e
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+		release, e = m.publicRelease(ctx, r, dir)
+		if e != nil {
+			return "", "", e
+		}
+	} else {
+		if resp.StatusCode != 200 {
+			return "", "", fmt.Errorf("official release lookup for %s: %s", r.Repository, resp.Status)
+		}
+		if e = json.NewDecoder(resp.Body).Decode(&release); e != nil {
+			return "", "", e
+		}
 	}
 	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", strings.TrimPrefix(release.Tag, "v")), dir)
 	url, digest := "", ""

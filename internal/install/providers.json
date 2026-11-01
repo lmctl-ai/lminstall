@@ -297,7 +297,8 @@
           "repository": "lmctl-ai/lmplayer",
           "asset": "lmplayer-{version}-{os}-{assetarch}{archive}",
           "bin": "",
-          "bin_dir": ""
+          "bin_dir": "",
+          "checksums": "SHA256SUMS"
         }
       }
     },

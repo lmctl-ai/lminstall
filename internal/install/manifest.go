@@ -21,6 +21,7 @@ type Provider struct {
 	Recipes map[string]Recipe `json:"recipes"`
 }
 type Recipe struct {
+	Checksums     string            `json:"checksums"`
 	UpdateURL     string            `json:"update_url"`
 	ArchiveBinary string            `json:"archive_binary"`
 	Channel       string            `json:"channel"`

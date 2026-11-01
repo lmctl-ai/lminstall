@@ -130,3 +130,47 @@ func TestOfficialUpdateManifestChecksSHA512(t *testing.T) {
 		t.Fatal("accepted bad SHA512")
 	}
 }
+
+func TestPublicReleaseFallbackWithoutAPICredentials(t *testing.T) {
+	payload := zipBytes(t, "bin/tool", []byte("native"))
+	h := sha256.Sum256(payload)
+	sum := hex.EncodeToString(h[:])
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api":
+			w.WriteHeader(403)
+		case strings.HasSuffix(r.URL.Path, "/latest"):
+			http.Redirect(w, r, "/test/repo/releases/tag/v1.0.0", 302)
+		case strings.HasSuffix(r.URL.Path, "/SHA256SUMS"):
+			fmt.Fprintf(w, "%s  bundle.zip\n", sum)
+		case strings.HasSuffix(r.URL.Path, "/bundle.zip"):
+			w.Write(payload)
+		case strings.Contains(r.URL.Path, "/releases/tag/"):
+			w.Write([]byte("release"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	old := client
+	client = server.Client()
+	tr := client.Transport
+	client.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+		copy := r.Clone(r.Context())
+		u := *copy.URL
+		originalHost := u.Host
+		u.Scheme = "https"
+		u.Host = strings.TrimPrefix(server.URL, "https://")
+		if originalHost == "api.github.com" {
+			u.Path = "/api"
+		}
+		copy.URL = &u
+		return tr.RoundTrip(copy)
+	})
+	defer func() { client = old }()
+	m, _ := fixture(t)
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "release", Repository: "test/repo", Asset: "bundle.zip", Checksums: "SHA256SUMS"}
+	if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
+		t.Fatal(e)
+	}
+}

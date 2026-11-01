@@ -43,7 +43,9 @@ unavailable; its query exit is 0. Exit 1 is an operation failure, 2 invalid CLI/
 Inventory follows lmctl's native adapter registry, including the built-in mock
 fixture. The manifest is [providers.json](internal/install/providers.json).
 `list --json` enumerates it; available means a recipe exists, not a claimed live
-model certification. No API keys are needed to install or verify versions.
+model certification. No API keys are needed to install or verify versions. GitHub release lookup falls
+back from API quota errors to public release redirects and the publisher's
+checksum asset; it does not ask for tokens or wait on a retry timer.
 
 | ID | Official channel / prerequisite |
 | --- | --- |
@@ -57,7 +59,7 @@ model certification. No API keys are needed to install or verify versions.
 | [pi](https://github.com/earendil-works/pi) | npm @earendil-works/pi-coding-agent, official --ignore-scripts; Node/npm |
 | [dsh](https://deepseekdocs.com/en/docs/user-guide/cli) | npm @deepseek-ai/dsh; Node/npm |
 | [miniplayer](https://github.com/lmctl-ai/miniplayer) | npm from its official public Git source; Node/npm and Git (no published releases at initial inspection) |
-| [lmplayer](https://github.com/lmctl-ai/lmplayer/releases) | Official release archive; advertised SHA-256 verified when provided; no Node runtime |
+| [lmplayer](https://github.com/lmctl-ai/lmplayer/releases) | Official release archive; SHA-256 from release metadata or official SHA256SUMS; no Node runtime |
 | [hermes](https://github.com/NousResearch/hermes-agent) | official Git project and frozen uv sync, Python 3.14 core dependencies; uv and Git |
 | [agy](https://antigravity.google/download) | Official updater manifest and SHA-512 artifact, without its system setup handoff |
 | [muse](https://dev.meta.ai/lp/muse-code) | Official shell/PowerShell installer and launcher, owned directory; no login during install |
