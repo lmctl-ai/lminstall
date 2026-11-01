@@ -151,9 +151,9 @@ func TestReleaseLauncherUsesLiteralStablePath(t *testing.T) {
 	}
 }
 
-func TestWindowsOwnedImageUnlinksWithoutKillingProvider(t *testing.T) {
+func TestWindowsOwnedImageRefusesUntilProviderExits(t *testing.T) {
 	if runtime.GOOS != "windows" {
-		t.Skip("Windows image-section disposition")
+		t.Skip("Windows mapped-image ownership")
 	}
 	m, _ := fixture(t)
 	m.OS = "windows"
@@ -183,7 +183,12 @@ func TestWindowsOwnedImageUnlinksWithoutKillingProvider(t *testing.T) {
 	if e = child.Start(); e != nil {
 		t.Fatal(e)
 	}
-	defer func() { child.Process.Kill(); child.Wait() }()
+	defer func() {
+		if child.ProcessState == nil {
+			child.Process.Kill()
+			child.Wait()
+		}
+	}()
 	line, e := bufio.NewReader(ready).ReadString('\n')
 	if e != nil {
 		t.Fatal(e)
@@ -192,15 +197,26 @@ func TestWindowsOwnedImageUnlinksWithoutKillingProvider(t *testing.T) {
 	if e = os.Remove(dest); e == nil {
 		t.Fatal("legacy-delete control unexpectedly removed a mapped image")
 	}
-	if _, e = m.Apply(context.Background(), "uninstall", "tool"); e != nil {
-		t.Fatal(e)
+	if _, e = m.Apply(context.Background(), "uninstall", "tool"); e == nil {
+		t.Fatal("uninstall accepted a running mapped executable")
 	}
-	if _, e = os.Stat(dir); !os.IsNotExist(e) {
-		t.Fatalf("owned namespace still present: %v", e)
+	if e = owned(dir, "tool"); e != nil {
+		t.Fatalf("failed uninstall lost ownership: %v", e)
 	}
 	c, e := net.Dial("tcp", address)
 	if e != nil {
 		t.Fatalf("uninstall killed a provider process: %v", e)
 	}
 	c.Close()
+	// Only stop the exact child this test started, then wait for its exit.
+	if e = child.Process.Kill(); e != nil {
+		t.Fatal(e)
+	}
+	child.Wait()
+	if _, e = m.Apply(context.Background(), "uninstall", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = os.Stat(dir); !os.IsNotExist(e) {
+		t.Fatalf("owned namespace remains: %v", e)
+	}
 }

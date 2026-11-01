@@ -28,8 +28,9 @@ channel for its newest version, then verifies it. Stop a provider before upgradi
 on Windows or when its own package manager requires it. Uninstall removes only the
 provider's owned directory, not shared runtime caches or external installations.
 On modern Windows, owned files use POSIX-style namespace deletion so cached image
-sections do not require a delay loop; existing handles retain their bytes until
-closed. No unrelated process is stopped.
+sections can be released without a delay loop. A running executable can still
+prevent deletion: stop that provider and repeat uninstall; the ownership marker
+is retained so retry is safe. No unrelated process is stopped.
 Unowned directories are refused. Concurrent operations on one provider fail busy
 immediately; no polling or waiting policy is added. If an installer is killed,
 remove its named lock only after confirming that installer process has exited.

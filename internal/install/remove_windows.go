@@ -12,8 +12,8 @@ import (
 var setFileInfo = kernel.NewProc("SetFileInformationByHandle")
 
 // Modern Windows POSIX disposition removes the owned namespace entry without
-// waiting for a cached image section to disappear. Existing handles keep their
-// bytes until closed; no foreign process is stopped and no retry timer is used.
+// legacy delete-pending handles to close. Running executable images can still
+// refuse deletion; ownership remains retryable, with no process kill or timer.
 func unlinkManaged(path string) error {
 	name, e := syscall.UTF16PtrFromString(path)
 	if e != nil {
