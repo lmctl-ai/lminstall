@@ -70,6 +70,7 @@ func run(args []string) int {
 		var b []byte
 		b, e = os.ReadFile(manifestPath)
 		if e == nil {
+			manifest = install.Manifest{}
 			e = json.Unmarshal(b, &manifest)
 		}
 		if e == nil {
