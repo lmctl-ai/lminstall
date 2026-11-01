@@ -128,3 +128,41 @@ func TestCatalogAndNoProductionCredentialFields(t *testing.T) {
 		}
 	}
 }
+
+func TestProjectRecipeUsesRootLockAndUpdatesCheckout(t *testing.T) {
+	m, f := fixture(t)
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "project", Repository: "https://example.invalid/official", Bin: "source/.venv/bin/tool", BinDir: "source/.venv/bin", Steps: []Step{{Args: []string{"uv", "sync", "--frozen", "--no-dev"}, Cwd: "{dir}/source"}}}
+	if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	// A successful clone leaves a checkout; the fake runner otherwise has no filesystem effects.
+	os.MkdirAll(filepath.Join(m.dir("tool"), "source", ".git"), 0700)
+	if _, e := m.Apply(context.Background(), "upgrade", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	if len(f.calls) != 7 || f.calls[0][1] != "clone" || f.calls[1][1] != "sync" || f.calls[3][3] != "fetch" || f.calls[4][3] != "checkout" {
+		t.Fatal(f.calls)
+	}
+}
+
+func TestFailedRemovalRetainsOwnership(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".lminstall-owner"), []byte("tool\n"), 0600)
+	os.Mkdir(filepath.Join(dir, "bin"), 0700)
+	err := removeOwned(dir, "tool", func(path string) error {
+		if path == dir {
+			os.Remove(filepath.Join(dir, ".lminstall-owner"))
+			return errors.New("in use")
+		}
+		if filepath.Base(path) == "bin" {
+			return errors.New("in use")
+		}
+		return os.RemoveAll(path)
+	})
+	if err == nil {
+		t.Fatal("accepted failed cleanup")
+	}
+	if e := owned(dir, "tool"); e != nil {
+		t.Fatalf("lost retry ownership: %v", e)
+	}
+}

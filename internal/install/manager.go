@@ -192,7 +192,11 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 		return res, e
 	}
 	if op == "uninstall" {
-		e = os.RemoveAll(dir)
+		e = removeOwned(dir, id, os.RemoveAll)
+		if e != nil {
+			res.State = "incomplete"
+			res.Reason = e.Error()
+		}
 		return res, e
 	}
 	if op == "install" {
@@ -248,6 +252,25 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 		_, e := m.Runner.Run(ctx, a, m.expand(cwd, dir), m.env(r, dir), false)
 		return e
 	}
+	steps := func() error {
+		for _, step := range r.Steps {
+			if step.URL != "" {
+				path, e := relative(dir, step.File)
+				if e != nil {
+					return e
+				}
+				if e = download(ctx, step.URL, path, ""); e != nil {
+					return e
+				}
+			}
+			if len(step.Args) > 0 {
+				if e := run(step.Args, step.Cwd); e != nil {
+					return e
+				}
+			}
+		}
+		return nil
+	}
 	var e error
 	switch r.Channel {
 	case "npm":
@@ -256,24 +279,25 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 		e = run(a, "")
 	case "uv":
 		e = run([]string{"uv", "tool", "install", "--upgrade", "--force", "--python", r.Python, r.Package}, "")
+	case "project":
+		source := filepath.Join(dir, "source")
+		if _, statErr := os.Stat(filepath.Join(source, ".git")); errors.Is(statErr, os.ErrNotExist) {
+			e = run([]string{"git", "clone", "--depth", "1", r.Repository, source}, "")
+		} else if statErr != nil {
+			e = statErr
+		} else {
+			e = run([]string{"git", "-C", source, "fetch", "--depth", "1", "origin", "HEAD"}, "")
+			if e == nil {
+				e = run([]string{"git", "-C", source, "checkout", "--detach", "FETCH_HEAD"}, "")
+			}
+		}
+		if e == nil {
+			e = steps()
+		}
 	case "release":
 		return m.release(ctx, p, r, dir)
 	case "steps":
-		for _, step := range r.Steps {
-			if step.URL != "" {
-				var path string
-				path, e = relative(dir, step.File)
-				if e == nil {
-					e = download(ctx, step.URL, path, "")
-				}
-			}
-			if e == nil && len(step.Args) > 0 {
-				e = run(step.Args, step.Cwd)
-			}
-			if e != nil {
-				break
-			}
-		}
+		e = steps()
 	default:
 		e = fmt.Errorf("unknown install channel %q", r.Channel)
 	}
@@ -287,4 +311,31 @@ func prerequisite(name string) (string, error) {
 		return "", fmt.Errorf("required command %s is missing; see the provider's official installation link", name)
 	}
 	return p, nil
+}
+
+// Delete the ownership marker last. Failed Windows deletions remain safely retryable.
+func removeOwned(dir, id string, remove func(string) error) error {
+	if e := owned(dir, id); e != nil {
+		return e
+	}
+	entries, e := os.ReadDir(dir)
+	if e != nil {
+		return e
+	}
+	for _, entry := range entries {
+		if entry.Name() == ".lminstall-owner" {
+			continue
+		}
+		if e = remove(filepath.Join(dir, entry.Name())); e != nil {
+			return e
+		}
+	}
+	if e = os.Remove(filepath.Join(dir, ".lminstall-owner")); e != nil {
+		return e
+	}
+	if e = os.Remove(dir); e != nil {
+		os.WriteFile(filepath.Join(dir, ".lminstall-owner"), []byte(id+"\n"), 0600)
+		return e
+	}
+	return nil
 }

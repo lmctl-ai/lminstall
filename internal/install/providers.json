@@ -306,18 +306,74 @@
       "binary": "hermes",
       "source": "https://github.com/NousResearch/hermes-agent",
       "recipes": {
-        "*": {
-          "channel": "uv",
-          "package": "git+https://github.com/NousResearch/hermes-agent.git",
-          "python": "3.14",
-          "bin": "bin/hermes{exe}",
-          "bin_dir": "bin",
+        "linux": {
+          "channel": "project",
+          "repository": "https://github.com/NousResearch/hermes-agent.git",
+          "bin": "source/.venv/bin/hermes",
+          "bin_dir": "source/.venv/bin",
           "env": {
-            "UV_TOOL_DIR": "{dir}/tools",
-            "UV_TOOL_BIN_DIR": "{dir}/bin",
             "UV_PYTHON_INSTALL_DIR": "{root}/python",
             "UV_CACHE_DIR": "{root}/cache/uv"
-          }
+          },
+          "steps": [
+            {
+              "args": [
+                "uv",
+                "sync",
+                "--frozen",
+                "--no-dev",
+                "--python",
+                "3.14"
+              ],
+              "cwd": "{dir}/source"
+            }
+          ]
+        },
+        "darwin": {
+          "channel": "project",
+          "repository": "https://github.com/NousResearch/hermes-agent.git",
+          "bin": "source/.venv/bin/hermes",
+          "bin_dir": "source/.venv/bin",
+          "env": {
+            "UV_PYTHON_INSTALL_DIR": "{root}/python",
+            "UV_CACHE_DIR": "{root}/cache/uv"
+          },
+          "steps": [
+            {
+              "args": [
+                "uv",
+                "sync",
+                "--frozen",
+                "--no-dev",
+                "--python",
+                "3.14"
+              ],
+              "cwd": "{dir}/source"
+            }
+          ]
+        },
+        "windows": {
+          "channel": "project",
+          "repository": "https://github.com/NousResearch/hermes-agent.git",
+          "bin": "source/.venv/Scripts/hermes.exe",
+          "bin_dir": "source/.venv/Scripts",
+          "env": {
+            "UV_PYTHON_INSTALL_DIR": "{root}/python",
+            "UV_CACHE_DIR": "{root}/cache/uv"
+          },
+          "steps": [
+            {
+              "args": [
+                "uv",
+                "sync",
+                "--frozen",
+                "--no-dev",
+                "--python",
+                "3.14"
+              ],
+              "cwd": "{dir}/source"
+            }
+          ]
         }
       }
     },
@@ -422,7 +478,8 @@
             "MUSE_INSTALL_DIR": "{dir}/bin",
             "MUSE_NO_MODIFY_PATH": "1",
             "MUSE_LOGIN": "0",
-            "HOME": "{dir}/home"
+            "HOME": "{dir}/home",
+            "MUSE_NO_AUTO_UPDATE": "1"
           },
           "steps": [
             {
@@ -445,7 +502,8 @@
             "MUSE_INSTALL_DIR": "{dir}/bin",
             "MUSE_NO_MODIFY_PATH": "1",
             "MUSE_LOGIN": "0",
-            "HOME": "{dir}/home"
+            "HOME": "{dir}/home",
+            "MUSE_NO_AUTO_UPDATE": "1"
           },
           "steps": [
             {
@@ -469,7 +527,8 @@
             "MUSE_NO_MODIFY_PATH": "1",
             "MUSE_LOGIN": "0",
             "HOME": "{dir}/home",
-            "USERPROFILE": "{dir}/home"
+            "USERPROFILE": "{dir}/home",
+            "MUSE_NO_AUTO_UPDATE": "1"
           },
           "steps": [
             {
