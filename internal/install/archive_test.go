@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -99,5 +100,33 @@ func TestReleaseUpgradeKeepsBinDirAndChecksDigest(t *testing.T) {
 	digest = "sha256:" + strings.Repeat("0", 64)
 	if _, e = m.Apply(context.Background(), "upgrade", "tool"); e == nil {
 		t.Fatal("accepted bad checksum")
+	}
+}
+
+func TestOfficialUpdateManifestChecksSHA512(t *testing.T) {
+	data := []byte("native binary")
+	h := sha512.Sum512(data)
+	digest := hex.EncodeToString(h[:])
+	var url string
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/binary" {
+			w.Write(data)
+		} else {
+			fmt.Fprintf(w, `{"version":"1.2.3","url":%q,"sha512":%q}`, url+"/binary", digest)
+		}
+	}))
+	defer s.Close()
+	url = s.URL
+	old := client
+	client = s.Client()
+	defer func() { client = old }()
+	m, _ := fixture(t)
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "update-manifest", UpdateURL: url + "/manifest", Bin: "bin/tool", BinDir: "bin"}
+	if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	digest = strings.Repeat("0", 128)
+	if _, e := m.Apply(context.Background(), "upgrade", "tool"); e == nil {
+		t.Fatal("accepted bad SHA512")
 	}
 }

@@ -59,7 +59,7 @@ model certification. No API keys are needed to install or verify versions.
 | [miniplayer](https://github.com/lmctl-ai/miniplayer) | npm from its official public Git source; Node/npm and Git (no published releases at initial inspection) |
 | [lmplayer](https://github.com/lmctl-ai/lmplayer/releases) | Official release archive; advertised SHA-256 verified when provided; no Node runtime |
 | [hermes](https://github.com/NousResearch/hermes-agent) | official Git project and frozen uv sync, Python 3.14 core dependencies; uv and Git |
-| [agy](https://antigravity.google/download) | Official shell/PowerShell installer, custom owned directory |
+| [agy](https://antigravity.google/download) | Official updater manifest and SHA-512 artifact, without its system setup handoff |
 | [muse](https://dev.meta.ai/lp/muse-code) | Official shell/PowerShell installer and launcher, owned directory; no login during install |
 | claudemock | Unavailable as a standalone CLI: it is an lmctl fixture. Enable LMCTL_ENABLE_MOCK_PROVIDER=1 in lmctl. No fake installation/version is substituted. |
 
@@ -107,7 +107,7 @@ No live model request is part of these workflows.
 ## Manifest and development
 
 Adding a provider is data: id, binary, official source link and per-OS recipe.
-Generic channels are npm, uv tools, Git projects, GitHub release archives and downloaded official
+Generic channels are npm, uv tools, Git projects, checksum update manifests, GitHub release archives and downloaded official
 installer steps. Recipes contain argv arrays, owned paths and environment values;
 root paths never interpolate into shell code. Use `--manifest FILE` to explicitly
 load another trusted manifest. Manifests execute installation code and are trusted

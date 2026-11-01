@@ -21,18 +21,20 @@ type Provider struct {
 	Recipes map[string]Recipe `json:"recipes"`
 }
 type Recipe struct {
-	Channel     string            `json:"channel"`
-	Package     string            `json:"package"`
-	Python      string            `json:"python"`
-	Repository  string            `json:"repository"`
-	Asset       string            `json:"asset"`
-	Bin         string            `json:"bin"`
-	BinDir      string            `json:"bin_dir"`
-	Args        []string          `json:"args"`
-	Env         map[string]string `json:"env"`
-	Steps       []Step            `json:"steps"`
-	Replace     []string          `json:"replace_on_upgrade"`
-	Unavailable string            `json:"unavailable"`
+	UpdateURL     string            `json:"update_url"`
+	ArchiveBinary string            `json:"archive_binary"`
+	Channel       string            `json:"channel"`
+	Package       string            `json:"package"`
+	Python        string            `json:"python"`
+	Repository    string            `json:"repository"`
+	Asset         string            `json:"asset"`
+	Bin           string            `json:"bin"`
+	BinDir        string            `json:"bin_dir"`
+	Args          []string          `json:"args"`
+	Env           map[string]string `json:"env"`
+	Steps         []Step            `json:"steps"`
+	Replace       []string          `json:"replace_on_upgrade"`
+	Unavailable   string            `json:"unavailable"`
 }
 type Step struct {
 	URL  string   `json:"url"`

@@ -383,85 +383,40 @@
       "source": "https://antigravity.google/download",
       "recipes": {
         "linux": {
-          "channel": "steps",
+          "channel": "update-manifest",
+          "update_url": "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_{arch}.json",
+          "archive_binary": "antigravity",
           "bin": "bin/agy",
           "bin_dir": "bin",
-          "replace_on_upgrade": [
-            "bin/agy"
-          ],
           "env": {
-            "HOME": "{dir}/home"
-          },
-          "steps": [
-            {
-              "url": "https://antigravity.google/cli/install.sh",
-              "file": "install.sh"
-            },
-            {
-              "args": [
-                "bash",
-                "{dir}/install.sh",
-                "--dir",
-                "{dir}/bin"
-              ]
-            }
-          ]
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local"
+          }
         },
         "darwin": {
-          "channel": "steps",
+          "channel": "update-manifest",
+          "update_url": "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/darwin_{arch}.json",
+          "archive_binary": "antigravity",
           "bin": "bin/agy",
           "bin_dir": "bin",
-          "replace_on_upgrade": [
-            "bin/agy"
-          ],
           "env": {
-            "HOME": "{dir}/home"
-          },
-          "steps": [
-            {
-              "url": "https://antigravity.google/cli/install.sh",
-              "file": "install.sh"
-            },
-            {
-              "args": [
-                "bash",
-                "{dir}/install.sh",
-                "--dir",
-                "{dir}/bin"
-              ]
-            }
-          ]
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local"
+          }
         },
         "windows": {
-          "channel": "steps",
+          "channel": "update-manifest",
+          "update_url": "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/windows_{arch}.json",
+          "archive_binary": "antigravity",
           "bin": "bin/agy.exe",
           "bin_dir": "bin",
-          "replace_on_upgrade": [
-            "bin/agy.exe"
-          ],
           "env": {
+            "HOME": "{dir}/home",
             "USERPROFILE": "{dir}/home",
-            "HOME": "{dir}/home"
-          },
-          "steps": [
-            {
-              "url": "https://antigravity.google/cli/install.ps1",
-              "file": "install.ps1"
-            },
-            {
-              "args": [
-                "powershell.exe",
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "{dir}/install.ps1",
-                "--dir",
-                "{dir}/bin"
-              ]
-            }
-          ]
+            "LOCALAPPDATA": "{dir}/home/local"
+          }
         }
       }
     },

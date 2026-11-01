@@ -6,9 +6,11 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"os"
@@ -45,7 +47,10 @@ func download(ctx context.Context, url, dest, digest string) error {
 	}
 	name := f.Name()
 	defer os.Remove(name)
-	hash := sha256.New()
+	var hash hash.Hash = sha256.New()
+	if strings.HasPrefix(digest, "sha512:") {
+		hash = sha512.New()
+	}
 	_, copyErr := io.Copy(io.MultiWriter(f, hash), resp.Body)
 	closeErr := f.Close()
 	if copyErr != nil {
@@ -55,8 +60,8 @@ func download(ctx context.Context, url, dest, digest string) error {
 		return closeErr
 	}
 	if digest != "" {
-		want := strings.TrimPrefix(digest, "sha256:")
-		if len(want) != 64 || !strings.EqualFold(want, hex.EncodeToString(hash.Sum(nil))) {
+		want := strings.TrimPrefix(strings.TrimPrefix(digest, "sha256:"), "sha512:")
+		if len(want) != len(hash.Sum(nil))*2 || !strings.EqualFold(want, hex.EncodeToString(hash.Sum(nil))) {
 			return fmt.Errorf("checksum mismatch for %s", url)
 		}
 	}
@@ -215,7 +220,7 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 	if e != nil {
 		return "", "", e
 	}
-	defer os.RemoveAll(stage)
+	// Successful versioned payloads remain owned until uninstall.
 	// Keep bundle-relative resources alongside the executable, under a stable PATH directory.
 	if e = extractArchive(archive, stage); e != nil {
 		os.RemoveAll(stage)
@@ -245,34 +250,11 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 	if e = os.Chmod(matches[0], 0755); e != nil {
 		return "", "", e
 	}
-	inside, e := filepath.Rel(stage, matches[0])
+	// A versioned payload never renames or overwrites a running executable.
+	// Publishing the stable launcher happens only after successful --version.
+	rel, e := filepath.Rel(dir, matches[0])
 	if e != nil {
 		return "", "", e
 	}
-	payload := filepath.Join(dir, "payload")
-	backup, e := os.MkdirTemp(dir, "payload-old-")
-	if e != nil {
-		return "", "", e
-	}
-	os.Remove(backup)
-	old := false
-	if _, e = os.Stat(payload); e == nil {
-		if e = os.Rename(payload, backup); e != nil {
-			return "", "", fmt.Errorf("close the provider before upgrading: %w", e)
-		}
-		old = true
-	}
-	if e = os.Rename(stage, payload); e != nil {
-		if old {
-			os.Rename(backup, payload)
-		}
-		return "", "", e
-	}
-	if old {
-		if e = os.RemoveAll(backup); e != nil {
-			return "", "", fmt.Errorf("close the old provider and remove its owned backup %s: %w", backup, e)
-		}
-	}
-	rel := filepath.Join("payload", inside)
-	return rel, filepath.Dir(rel), nil
+	return rel, "bin", nil
 }

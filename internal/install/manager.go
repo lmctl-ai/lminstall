@@ -232,6 +232,11 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 		res.Reason = e.Error()
 		return res, e
 	}
+	if r.Channel == "release" {
+		if e = m.publishLauncher(p, bin); e != nil {
+			return res, e
+		}
+	}
 	rec := receipt{id, bin, bindir, v}
 	b, _ := json.MarshalIndent(rec, "", "  ")
 	if e = os.WriteFile(filepath.Join(dir, "receipt.json"), b, 0600); e != nil {
@@ -294,6 +299,8 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 		if e == nil {
 			e = steps()
 		}
+	case "update-manifest":
+		return m.updateManifest(ctx, p, r, dir)
 	case "release":
 		return m.release(ctx, p, r, dir)
 	case "steps":
