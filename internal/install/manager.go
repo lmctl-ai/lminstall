@@ -192,7 +192,7 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 		return res, e
 	}
 	if op == "uninstall" {
-		e = removeOwned(dir, id, os.RemoveAll)
+		e = removeOwned(dir, id, removeManaged)
 		if e != nil {
 			res.State = "incomplete"
 			res.Reason = e.Error()

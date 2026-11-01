@@ -150,3 +150,57 @@ func TestReleaseLauncherUsesLiteralStablePath(t *testing.T) {
 		t.Fatal(e, len(text))
 	}
 }
+
+func TestWindowsOwnedImageUnlinksWithoutKillingProvider(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows image-section disposition")
+	}
+	m, _ := fixture(t)
+	m.OS = "windows"
+	dir := m.dir("tool")
+	os.MkdirAll(filepath.Join(dir, "bin"), 0700)
+	os.WriteFile(filepath.Join(dir, ".lminstall-owner"), []byte("tool\n"), 0600)
+	exe, _ := os.Executable()
+	in, e := os.Open(exe)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer in.Close()
+	dest := filepath.Join(dir, "bin", "tool.exe")
+	out, e := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0755)
+	if e != nil {
+		t.Fatal(e)
+	}
+	io.Copy(out, in)
+	out.Close()
+	held := filepath.Join(t.TempDir(), "held")
+	child := exec.Command(dest, "-test.run=^TestHelperProcess$")
+	child.Env = append(os.Environ(), "LMINSTALL_HELPER=job-child", "LMINSTALL_LOCK_FILE="+held)
+	ready, e := child.StdoutPipe()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = child.Start(); e != nil {
+		t.Fatal(e)
+	}
+	defer func() { child.Process.Kill(); child.Wait() }()
+	line, e := bufio.NewReader(ready).ReadString('\n')
+	if e != nil {
+		t.Fatal(e)
+	}
+	address := strings.TrimSpace(strings.TrimPrefix(line, "READY "))
+	if e = os.Remove(dest); e == nil {
+		t.Fatal("legacy-delete control unexpectedly removed a mapped image")
+	}
+	if _, e = m.Apply(context.Background(), "uninstall", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = os.Stat(dir); !os.IsNotExist(e) {
+		t.Fatalf("owned namespace still present: %v", e)
+	}
+	c, e := net.Dial("tcp", address)
+	if e != nil {
+		t.Fatalf("uninstall killed a provider process: %v", e)
+	}
+	c.Close()
+}
