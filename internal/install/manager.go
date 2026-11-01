@@ -89,6 +89,24 @@ func (m *Manager) verify(ctx context.Context, p Provider, r Recipe, bin string) 
 	}
 	return out, nil
 }
+
+// Match a complete version token, allowing a conventional v prefix and banner text.
+var versionToken = regexp.MustCompile(`(?:^|[^A-Za-z0-9.])v?([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?)(?:$|[^A-Za-z0-9.+-])`)
+
+func (m *Manager) verifySelectedVersion(ctx context.Context, p Provider, r Recipe, bin, expected string) error {
+	out, e := m.verify(ctx, p, r, bin)
+	if e != nil {
+		return e
+	}
+	want := strings.TrimPrefix(expected, "v")
+	for _, match := range versionToken.FindAllStringSubmatch(out, -1) {
+		if match[1] == want {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s version mismatch: selected %s, executable reported %s", p.ID, expected, out)
+}
+
 func owned(dir, id string) error {
 	b, e := os.ReadFile(filepath.Join(dir, ".lminstall-owner"))
 	if e != nil || string(b) != id+"\n" {
@@ -133,6 +151,13 @@ func (m *Manager) Status(ctx context.Context, id string) (Result, error) {
 		res.State = "broken"
 		res.Reason = e.Error()
 		return res, nil
+	}
+	if r.Channel == "release" {
+		if e = m.checkLauncher(p, rec.Bin); e != nil {
+			res.State = "broken"
+			res.Reason = e.Error()
+			return res, nil
+		}
 	}
 	res.State = "installed"
 	res.Version = v
@@ -264,7 +289,7 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 				if e != nil {
 					return e
 				}
-				if e = download(ctx, step.URL, path, ""); e != nil {
+				if e = download(ctx, step.URL, path, step.Digest); e != nil {
 					return e
 				}
 			}

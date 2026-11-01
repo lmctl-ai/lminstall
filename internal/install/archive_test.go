@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -58,12 +59,13 @@ func TestReleaseUpgradeKeepsBinDirAndChecksDigest(t *testing.T) {
 	payload := zipBytes(t, "bundle/bin/tool", []byte("binary"))
 	hash := sha256.Sum256(payload)
 	digest := "sha256:" + hex.EncodeToString(hash[:])
+	tag := "v1.2.3"
 	var url string
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/asset" {
 			w.Write(payload)
 		} else {
-			fmt.Fprintf(w, `{"tag_name":"v1.0.0","assets":[{"name":"bundle.zip","browser_download_url":%q,"digest":%q}]}`, url+"/asset", digest)
+			fmt.Fprintf(w, `{"tag_name":%q,"assets":[{"name":"bundle.zip","browser_download_url":%q,"digest":%q}]}`, tag, url+"/asset", digest)
 		}
 	}))
 	defer server.Close()
@@ -89,7 +91,25 @@ func TestReleaseUpgradeKeepsBinDirAndChecksDigest(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	// Status must qualify the stable PATH entry on every supported OS.
+	launcher := filepath.Join(first.BinDir, "tool")
+	if runtime.GOOS == "windows" {
+		launcher += ".cmd"
+	}
+	if e := os.Remove(launcher); e != nil {
+		t.Fatal(e)
+	}
+	if status, e := m.Status(context.Background(), "tool"); e != nil || status.State != "broken" {
+		t.Fatalf("missing launcher: %+v %v", status, e)
+	}
+	if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	if status, e := m.Status(context.Background(), "tool"); e != nil || status.State != "installed" {
+		t.Fatalf("repaired launcher: %+v %v", status, e)
+	}
 	f.output = "tool 2.0.0"
+	tag = "v2.0.0"
 	second, e := m.Apply(context.Background(), "upgrade", "tool")
 	if e != nil {
 		t.Fatal(e)
@@ -140,7 +160,7 @@ func TestPublicReleaseFallbackWithoutAPICredentials(t *testing.T) {
 		case r.URL.Path == "/api":
 			w.WriteHeader(403)
 		case strings.HasSuffix(r.URL.Path, "/latest"):
-			http.Redirect(w, r, "/test/repo/releases/tag/v1.0.0", 302)
+			http.Redirect(w, r, "/test/repo/releases/tag/v1.2.3", 302)
 		case strings.HasSuffix(r.URL.Path, "/SHA256SUMS"):
 			fmt.Fprintf(w, "%s  bundle.zip\n", sum)
 		case strings.HasSuffix(r.URL.Path, "/bundle.zip"):

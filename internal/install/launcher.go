@@ -51,3 +51,23 @@ func (m *Manager) publishLauncher(p Provider, bin string) error {
 	}
 	return os.Rename(tmp, filepath.Join(stable, name))
 }
+
+// Validate the PATH entry as well as the versioned payload before reusing it.
+func (m *Manager) checkLauncher(p Provider, bin string) error {
+	path := filepath.Join(m.dir(p.ID), "bin", p.Binary)
+	if runtime.GOOS == "windows" {
+		path += ".cmd"
+		text, e := os.ReadFile(path)
+		expected := "@echo off\r\n\"%~dp0..\\" + strings.ReplaceAll(bin, "/", "\\") + "\" %*\r\nexit /b %errorlevel%\r\n"
+		if e != nil || string(text) != expected {
+			return fmt.Errorf("missing or changed release launcher %s; run install to repair", path)
+		}
+	} else {
+		target, e := os.Readlink(path)
+		want, err := relative(m.dir(p.ID), bin)
+		if e != nil || err != nil || filepath.Clean(filepath.Join(filepath.Dir(path), target)) != want {
+			return fmt.Errorf("missing or changed release launcher %s; run install to repair", path)
+		}
+	}
+	return nil
+}

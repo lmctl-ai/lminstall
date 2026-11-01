@@ -19,7 +19,7 @@ func (m *Manager) updateManifest(ctx context.Context, p Provider, r Recipe, dir 
 	if e != nil {
 		return "", "", e
 	}
-	resp, e := client.Do(req)
+	resp, e := secureDo(req)
 	if e != nil {
 		return "", "", e
 	}
@@ -92,6 +92,9 @@ func (m *Manager) updateManifest(ctx context.Context, p Provider, r Recipe, dir 
 		if e = os.Chmod(dest, 0755); e != nil {
 			return "", "", e
 		}
+	}
+	if e = m.verifySelectedVersion(ctx, p, r, bin, meta.Version); e != nil {
+		return "", "", e
 	}
 	return bin, m.expand(r.BinDir, dir), nil
 }

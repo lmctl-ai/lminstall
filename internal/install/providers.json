@@ -440,7 +440,8 @@
           "steps": [
             {
               "url": "https://dev.meta.ai/install.sh",
-              "file": "install.sh"
+              "file": "install.sh",
+              "digest": "sha256:5196d820127a241211c96cf38f0b2e30cff8506a82e9da9508cd5f826632a0ca"
             },
             {
               "args": [
@@ -464,7 +465,8 @@
           "steps": [
             {
               "url": "https://dev.meta.ai/install.sh",
-              "file": "install.sh"
+              "file": "install.sh",
+              "digest": "sha256:5196d820127a241211c96cf38f0b2e30cff8506a82e9da9508cd5f826632a0ca"
             },
             {
               "args": [
@@ -489,7 +491,8 @@
           "steps": [
             {
               "url": "https://dev.meta.ai/install.ps1",
-              "file": "install.ps1"
+              "file": "install.ps1",
+              "digest": "sha256:45be8be39acf500982e816a09eb55b886ef65a986895741b10498c50bbb93776"
             },
             {
               "args": [

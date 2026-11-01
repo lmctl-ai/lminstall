@@ -22,6 +22,26 @@ import (
 // Zero deadlines: caller cancellation is the only application-imposed bound.
 var client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, ForceAttemptHTTP2: true}}
 
+// Copy the client so fixture transports and callers retain their configuration.
+// Check each hop before making the redirected request, including metadata lookups.
+func secureDo(req *http.Request) (*http.Response, error) {
+	if req.URL.Scheme != "https" {
+		return nil, fmt.Errorf("download requires HTTPS: %s", req.URL)
+	}
+	c := *client
+	previous := c.CheckRedirect
+	c.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if next.URL.Scheme != "https" {
+			return fmt.Errorf("redirect requires HTTPS: %s", next.URL)
+		}
+		if previous != nil {
+			return previous(next, via)
+		}
+		return nil
+	}
+	return c.Do(req)
+}
+
 func download(ctx context.Context, url, dest, digest string) error {
 	if !strings.HasPrefix(url, "https://") {
 		return fmt.Errorf("download requires HTTPS: %s", url)
@@ -31,7 +51,7 @@ func download(ctx context.Context, url, dest, digest string) error {
 		return e
 	}
 	req.Header.Set("User-Agent", "lminstall")
-	resp, e := client.Do(req)
+	resp, e := secureDo(req)
 	if e != nil {
 		return e
 	}
@@ -196,7 +216,7 @@ func (m *Manager) publicRelease(ctx context.Context, r Recipe, dir string) (rele
 	if e != nil {
 		return info, e
 	}
-	resp, e := client.Do(req)
+	resp, e := secureDo(req)
 	if e != nil {
 		return info, e
 	}
@@ -218,7 +238,7 @@ func (m *Manager) publicRelease(ctx context.Context, r Recipe, dir string) (rele
 	if e != nil {
 		return info, e
 	}
-	resp, e = client.Do(req)
+	resp, e = secureDo(req)
 	if e != nil {
 		return info, e
 	}
@@ -230,29 +250,67 @@ func (m *Manager) publicRelease(ctx context.Context, r Recipe, dir string) (rele
 	if e != nil {
 		return info, e
 	}
+	digest, e := checksumFor(body, name)
+	if e != nil {
+		return info, e
+	}
+	info.Assets = []releaseAsset{{Name: name, Digest: "sha256:" + digest, Download: base + url.PathEscape(name)}}
+	return info, nil
+}
+func checksumFor(body []byte, name string) (string, error) {
 	digest := ""
 	for _, line := range strings.Split(string(body), "\n") {
 		parts := strings.Fields(line)
 		if len(parts) >= 2 && strings.TrimPrefix(strings.Join(parts[1:], " "), "*") == name {
 			if digest != "" && digest != parts[0] {
-				return info, fmt.Errorf("ambiguous checksum for %s", name)
+				return "", fmt.Errorf("ambiguous checksum for %s", name)
 			}
 			digest = parts[0]
 		}
 	}
 	if digest == "" {
-		return info, fmt.Errorf("official checksum file has no %s", name)
+		return "", fmt.Errorf("official checksum file has no %s", name)
 	}
-	info.Assets = []releaseAsset{{Name: name, Digest: "sha256:" + digest, Download: base + url.PathEscape(name)}}
-	return info, nil
+	return digest, nil
 }
+
+func releaseChecksum(ctx context.Context, info releaseInfo, filename, name string) (string, error) {
+	for _, asset := range info.Assets {
+		if asset.Name != filename {
+			continue
+		}
+		req, e := http.NewRequestWithContext(ctx, "GET", asset.Download, nil)
+		if e != nil {
+			return "", e
+		}
+		resp, e := secureDo(req)
+		if e != nil {
+			return "", e
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return "", fmt.Errorf("official checksum asset: %s", resp.Status)
+		}
+		body, e := io.ReadAll(resp.Body)
+		if e != nil {
+			return "", e
+		}
+		digest, e := checksumFor(body, name)
+		if e != nil {
+			return "", e
+		}
+		return "sha256:" + digest, nil
+	}
+	return "", fmt.Errorf("release %s has no checksum asset %s", info.Tag, filename)
+}
+
 func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string) (string, string, error) {
 	req, e := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+r.Repository+"/releases/latest", nil)
 	if e != nil {
 		return "", "", e
 	}
 	req.Header.Set("User-Agent", "lminstall")
-	resp, e := client.Do(req)
+	resp, e := secureDo(req)
 	if e != nil {
 		return "", "", e
 	}
@@ -282,6 +340,15 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 	}
 	if url == "" {
 		return "", "", fmt.Errorf("official release %s has no %s asset", release.Tag, name)
+	}
+	if digest == "" {
+		if r.Checksums == "" {
+			return "", "", fmt.Errorf("release %s has no digest or declared checksum asset", release.Tag)
+		}
+		digest, e = releaseChecksum(ctx, release, r.Checksums, name)
+		if e != nil {
+			return "", "", e
+		}
 	}
 	archive := filepath.Join(dir, name)
 	if e = download(ctx, url, archive, digest); e != nil {
@@ -325,6 +392,9 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 	// Publishing the stable launcher happens only after successful --version.
 	rel, e := filepath.Rel(dir, matches[0])
 	if e != nil {
+		return "", "", e
+	}
+	if e = m.verifySelectedVersion(ctx, p, r, rel, release.Tag); e != nil {
 		return "", "", e
 	}
 	return rel, "bin", nil
