@@ -61,7 +61,7 @@ func (r ExecRunner) Run(ctx context.Context, args []string, cwd string, env map[
 	cmd.Stdout = writer
 	cmd.Stderr = writer
 	cmd.Stdin = nil
-	e = cmd.Run()
+	e = runOwned(cmd)
 	if e != nil {
 		return out.String(), fmt.Errorf("%s: %w", args[0], e)
 	}
