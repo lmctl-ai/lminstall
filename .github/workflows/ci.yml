@@ -1,0 +1,79 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  providers:
+    name: providers-${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, name: linux-amd64}
+          - {os: ubuntu-24.04-arm, name: linux-arm64}
+          - {os: macos-15, name: darwin-arm64}
+          - {os: macos-15-intel, name: darwin-amd64}
+          - {os: windows-2022, name: windows-amd64}
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: '0'
+      CI: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
+      - name: Unit tests and static build
+        run: |
+          go test ./...
+          go vet ./...
+          mkdir -p build
+          go build -trimpath -ldflags='-s -w' -o build/lminstall.exe ./cmd/lminstall
+      - name: Install, repeat, status, upgrade and uninstall the catalog
+        run: python scripts/ci-providers.py build/lminstall.exe
+      - name: Preserve provider results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-results-${{ matrix.name }}
+          path: provider-results.json
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lminstall-${{ matrix.name }}
+          path: build/lminstall.exe
+  composite:
+    name: action-${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./
+        id: setup
+        with:
+          providers: codex
+      - shell: bash
+        run: |
+          codex --version
+          lminstall status codex --json
+          lminstall uninstall codex

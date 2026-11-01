@@ -1,0 +1,103 @@
+package install
+
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func zipBytes(t *testing.T, name string, data []byte) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	z := zip.NewWriter(&b)
+	w, e := z.Create(name)
+	if e != nil {
+		t.Fatal(e)
+	}
+	w.Write(data)
+	if e = z.Close(); e != nil {
+		t.Fatal(e)
+	}
+	return b.Bytes()
+}
+func TestArchivePathTraversalAndUnboundedPayload(t *testing.T) {
+	for _, name := range []string{"../escape", "/absolute", "C:\\escape"} {
+		p := filepath.Join(t.TempDir(), "x.zip")
+		os.WriteFile(p, zipBytes(t, name, []byte("bad")), 0600)
+		if e := extractArchive(p, t.TempDir()); e == nil {
+			t.Fatal("accepted", name)
+		}
+	}
+	root := t.TempDir()
+	p := filepath.Join(root, "x.zip")
+	data := bytes.Repeat([]byte("x"), 1100000)
+	os.WriteFile(p, zipBytes(t, "folder/雪", data), 0600)
+	if e := extractArchive(p, filepath.Join(root, "out")); e != nil {
+		t.Fatal(e)
+	}
+	got, e := os.ReadFile(filepath.Join(root, "out/folder/雪"))
+	if e != nil || !bytes.Equal(got, data) {
+		t.Fatal(e, len(got))
+	}
+}
+
+type transportFunc func(*http.Request) (*http.Response, error)
+
+func (f transportFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+func TestReleaseUpgradeKeepsBinDirAndChecksDigest(t *testing.T) {
+	payload := zipBytes(t, "bundle/bin/tool", []byte("binary"))
+	hash := sha256.Sum256(payload)
+	digest := "sha256:" + hex.EncodeToString(hash[:])
+	var url string
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/asset" {
+			w.Write(payload)
+		} else {
+			fmt.Fprintf(w, `{"tag_name":"v1.0.0","assets":[{"name":"bundle.zip","browser_download_url":%q,"digest":%q}]}`, url+"/asset", digest)
+		}
+	}))
+	defer server.Close()
+	url = server.URL
+	old := client
+	client = server.Client()
+	originalTransport := client.Transport
+	client.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+		copy := r.Clone(r.Context())
+		if copy.URL.Host == "api.github.com" {
+			u := *copy.URL
+			u.Scheme = "https"
+			u.Host = strings.TrimPrefix(url, "https://")
+			u.Path = "/release"
+			copy.URL = &u
+		}
+		return originalTransport.RoundTrip(copy)
+	})
+	defer func() { client = old }()
+	m, f := fixture(t)
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "release", Repository: "test/repo", Asset: "bundle.zip"}
+	first, e := m.Apply(context.Background(), "install", "tool")
+	if e != nil {
+		t.Fatal(e)
+	}
+	f.output = "tool 2.0.0"
+	second, e := m.Apply(context.Background(), "upgrade", "tool")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if first.BinDir != second.BinDir {
+		t.Fatalf("upgrade invalidated PATH: %s -> %s", first.BinDir, second.BinDir)
+	}
+	digest = "sha256:" + strings.Repeat("0", 64)
+	if _, e = m.Apply(context.Background(), "upgrade", "tool"); e == nil {
+		t.Fatal("accepted bad checksum")
+	}
+}

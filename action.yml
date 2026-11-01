@@ -1,0 +1,49 @@
+name: lminstall coding providers
+description: Build the static installer and install coding CLIs through their official channels; never authenticates or prompts a model.
+inputs:
+  providers:
+    description: Space-separated provider IDs (for example claude codex kimi).
+    required: true
+  root:
+    description: Owned provider prefix; defaults to the runner's temporary directory.
+    required: false
+outputs:
+  executable:
+    description: Absolute path of the built lminstall executable.
+    value: ${{ steps.install.outputs.executable }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '24'
+    - uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: false
+    - id: install
+      shell: bash
+      env:
+        ACTION_HOME: ${{ github.action_path }}
+        PROVIDERS: ${{ inputs.providers }}
+        INSTALL_ROOT: ${{ inputs.root }}
+        CGO_ENABLED: '0'
+      run: |
+        tool_dir="$(echo "$RUNNER_TEMP" | tr '\\' '/')/lminstall-app"
+        mkdir -p "$tool_dir"
+        tool="$tool_dir/lminstall"
+        if [ "$RUNNER_OS" = Windows ]; then tool="$tool.exe"; fi
+        go -C "$ACTION_HOME" build -trimpath -ldflags='-s -w' -o "$tool" ./cmd/lminstall
+        printf '%s\n' "$tool_dir" >> "$GITHUB_PATH"
+        printf 'executable=%s\n' "$tool" >> "$GITHUB_OUTPUT"
+        if [ -z "$INSTALL_ROOT" ]; then INSTALL_ROOT="$(echo "$RUNNER_TEMP" | tr '\\' '/')/lminstall-providers"; fi
+        export LMINSTALL_ACTION_TOOL="$tool" LMINSTALL_ACTION_ROOT="$INSTALL_ROOT"
+        python - <<'PY'
+        import os,subprocess
+        providers=os.environ['PROVIDERS'].split()
+        if not providers: raise SystemExit('providers input must name at least one provider')
+        subprocess.run([os.environ['LMINSTALL_ACTION_TOOL'],'install',*providers,'--root',os.environ['LMINSTALL_ACTION_ROOT']],check=True)
+        PY

@@ -1,0 +1,505 @@
+{
+  "version": 1,
+  "providers": [
+    {
+      "id": "claude",
+      "binary": "claude",
+      "source": "https://code.claude.com/docs/en/setup",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@anthropic-ai/claude-code@latest",
+          "bin": "npm/bin/claude",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@anthropic-ai/claude-code@latest",
+          "bin": "npm/bin/claude",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@anthropic-ai/claude-code@latest",
+          "bin": "npm/claude.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "codex",
+      "binary": "codex",
+      "source": "https://github.com/openai/codex",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@openai/codex@latest",
+          "bin": "npm/bin/codex",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@openai/codex@latest",
+          "bin": "npm/bin/codex",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@openai/codex@latest",
+          "bin": "npm/codex.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "gemini",
+      "binary": "gemini",
+      "source": "https://github.com/google-gemini/gemini-cli",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@google/gemini-cli@latest",
+          "bin": "npm/bin/gemini",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@google/gemini-cli@latest",
+          "bin": "npm/bin/gemini",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@google/gemini-cli@latest",
+          "bin": "npm/gemini.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "copilot",
+      "binary": "copilot",
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-cli/install-copilot-cli",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@github/copilot@latest",
+          "bin": "npm/bin/copilot",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@github/copilot@latest",
+          "bin": "npm/bin/copilot",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@github/copilot@latest",
+          "bin": "npm/copilot.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "opencode",
+      "binary": "opencode",
+      "source": "https://opencode.ai/docs/",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "opencode-ai@latest",
+          "bin": "npm/bin/opencode",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "opencode-ai@latest",
+          "bin": "npm/bin/opencode",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "opencode-ai@latest",
+          "bin": "npm/opencode.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "kimi",
+      "binary": "kimi",
+      "source": "https://moonshotai.github.io/kimi-code/en/guides/getting-started",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@moonshot-ai/kimi-code@latest",
+          "bin": "npm/bin/kimi",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@moonshot-ai/kimi-code@latest",
+          "bin": "npm/bin/kimi",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@moonshot-ai/kimi-code@latest",
+          "bin": "npm/kimi.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "qwen",
+      "binary": "qwen",
+      "source": "https://github.com/QwenLM/qwen-code",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@qwen-code/qwen-code@latest",
+          "bin": "npm/bin/qwen",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@qwen-code/qwen-code@latest",
+          "bin": "npm/bin/qwen",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@qwen-code/qwen-code@latest",
+          "bin": "npm/qwen.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "pi",
+      "binary": "pi",
+      "source": "https://github.com/earendil-works/pi",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@earendil-works/pi-coding-agent@latest",
+          "bin": "npm/bin/pi",
+          "bin_dir": "npm/bin",
+          "args": [
+            "--ignore-scripts"
+          ]
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@earendil-works/pi-coding-agent@latest",
+          "bin": "npm/bin/pi",
+          "bin_dir": "npm/bin",
+          "args": [
+            "--ignore-scripts"
+          ]
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@earendil-works/pi-coding-agent@latest",
+          "bin": "npm/pi.cmd",
+          "bin_dir": "npm",
+          "args": [
+            "--ignore-scripts"
+          ]
+        }
+      }
+    },
+    {
+      "id": "dsh",
+      "binary": "dsh",
+      "source": "https://deepseekdocs.com/en/docs/user-guide/cli",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@deepseek-ai/dsh@latest",
+          "bin": "npm/bin/dsh",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@deepseek-ai/dsh@latest",
+          "bin": "npm/bin/dsh",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@deepseek-ai/dsh@latest",
+          "bin": "npm/dsh.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "miniplayer",
+      "binary": "miniplayer",
+      "source": "https://github.com/lmctl-ai/miniplayer",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "git+https://github.com/lmctl-ai/miniplayer.git",
+          "bin": "npm/bin/miniplayer",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "git+https://github.com/lmctl-ai/miniplayer.git",
+          "bin": "npm/bin/miniplayer",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "git+https://github.com/lmctl-ai/miniplayer.git",
+          "bin": "npm/miniplayer.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      }
+    },
+    {
+      "id": "lmplayer",
+      "binary": "lmplayer",
+      "source": "https://github.com/lmctl-ai/lmplayer",
+      "recipes": {
+        "*": {
+          "channel": "release",
+          "repository": "lmctl-ai/lmplayer",
+          "asset": "lmplayer-{version}-{os}-{assetarch}{archive}",
+          "bin": "",
+          "bin_dir": ""
+        }
+      }
+    },
+    {
+      "id": "hermes",
+      "binary": "hermes",
+      "source": "https://github.com/NousResearch/hermes-agent",
+      "recipes": {
+        "*": {
+          "channel": "uv",
+          "package": "git+https://github.com/NousResearch/hermes-agent.git",
+          "python": "3.14",
+          "bin": "bin/hermes{exe}",
+          "bin_dir": "bin",
+          "env": {
+            "UV_TOOL_DIR": "{dir}/tools",
+            "UV_TOOL_BIN_DIR": "{dir}/bin",
+            "UV_PYTHON_INSTALL_DIR": "{root}/python",
+            "UV_CACHE_DIR": "{root}/cache/uv"
+          }
+        }
+      }
+    },
+    {
+      "id": "agy",
+      "binary": "agy",
+      "source": "https://antigravity.google/download",
+      "recipes": {
+        "linux": {
+          "channel": "steps",
+          "bin": "bin/agy",
+          "bin_dir": "bin",
+          "replace_on_upgrade": [
+            "bin/agy"
+          ],
+          "env": {
+            "HOME": "{dir}/home"
+          },
+          "steps": [
+            {
+              "url": "https://antigravity.google/cli/install.sh",
+              "file": "install.sh"
+            },
+            {
+              "args": [
+                "bash",
+                "{dir}/install.sh",
+                "--dir",
+                "{dir}/bin"
+              ]
+            }
+          ]
+        },
+        "darwin": {
+          "channel": "steps",
+          "bin": "bin/agy",
+          "bin_dir": "bin",
+          "replace_on_upgrade": [
+            "bin/agy"
+          ],
+          "env": {
+            "HOME": "{dir}/home"
+          },
+          "steps": [
+            {
+              "url": "https://antigravity.google/cli/install.sh",
+              "file": "install.sh"
+            },
+            {
+              "args": [
+                "bash",
+                "{dir}/install.sh",
+                "--dir",
+                "{dir}/bin"
+              ]
+            }
+          ]
+        },
+        "windows": {
+          "channel": "steps",
+          "bin": "bin/agy.exe",
+          "bin_dir": "bin",
+          "replace_on_upgrade": [
+            "bin/agy.exe"
+          ],
+          "env": {
+            "USERPROFILE": "{dir}/home",
+            "HOME": "{dir}/home"
+          },
+          "steps": [
+            {
+              "url": "https://antigravity.google/cli/install.ps1",
+              "file": "install.ps1"
+            },
+            {
+              "args": [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "{dir}/install.ps1",
+                "--dir",
+                "{dir}/bin"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "muse",
+      "binary": "muse",
+      "source": "https://dev.meta.ai/lp/muse-code",
+      "recipes": {
+        "linux": {
+          "channel": "steps",
+          "bin": "bin/muse",
+          "bin_dir": "bin",
+          "env": {
+            "MUSE_INSTALL_DIR": "{dir}/bin",
+            "MUSE_NO_MODIFY_PATH": "1",
+            "MUSE_LOGIN": "0",
+            "HOME": "{dir}/home"
+          },
+          "steps": [
+            {
+              "url": "https://dev.meta.ai/install.sh",
+              "file": "install.sh"
+            },
+            {
+              "args": [
+                "bash",
+                "{dir}/install.sh"
+              ]
+            }
+          ]
+        },
+        "darwin": {
+          "channel": "steps",
+          "bin": "bin/muse",
+          "bin_dir": "bin",
+          "env": {
+            "MUSE_INSTALL_DIR": "{dir}/bin",
+            "MUSE_NO_MODIFY_PATH": "1",
+            "MUSE_LOGIN": "0",
+            "HOME": "{dir}/home"
+          },
+          "steps": [
+            {
+              "url": "https://dev.meta.ai/install.sh",
+              "file": "install.sh"
+            },
+            {
+              "args": [
+                "bash",
+                "{dir}/install.sh"
+              ]
+            }
+          ]
+        },
+        "windows": {
+          "channel": "steps",
+          "bin": "bin/muse.cmd",
+          "bin_dir": "bin",
+          "env": {
+            "MUSE_INSTALL_DIR": "{dir}/bin",
+            "MUSE_NO_MODIFY_PATH": "1",
+            "MUSE_LOGIN": "0",
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home"
+          },
+          "steps": [
+            {
+              "url": "https://dev.meta.ai/install.ps1",
+              "file": "install.ps1"
+            },
+            {
+              "args": [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "{dir}/install.ps1"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "claudemock",
+      "binary": "ClaudeMock",
+      "source": "https://github.com/lmctlhq/lmctl-mono",
+      "recipes": {
+        "*": {
+          "unavailable": "ClaudeMock is a built-in lmctl test fixture, not a separately distributed CLI. Enable LMCTL_ENABLE_MOCK_PROVIDER=1 in lmctl; there is no standalone --version to install."
+        }
+      }
+    }
+  ]
+}
