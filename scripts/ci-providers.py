@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Live installs, never model prompts. Attempt the whole catalog and retain failures."""
 import json,os,pathlib,subprocess,sys
+sys.stdout.reconfigure(encoding='utf-8',errors='backslashreplace')
+sys.stderr.reconfigure(encoding='utf-8',errors='backslashreplace')
 binary=str(pathlib.Path(sys.argv[1]).resolve())
 root=pathlib.Path(os.environ['RUNNER_TEMP'])/'lminstall live root 雪'
 summary=[]
