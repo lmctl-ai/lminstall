@@ -77,5 +77,5 @@ jobs:
       - shell: bash
         run: |
           codex --version
-          lminstall status codex --json
+          python -c 'import json,subprocess; r=json.loads(subprocess.check_output(["lminstall","status","codex","--json"])); assert r[0]["state"]=="installed",r'
           lminstall uninstall codex

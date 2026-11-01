@@ -93,7 +93,8 @@ steps:
 Inputs: `providers` (required space-separated IDs), optional `root`.
 Output: `executable`, the native lminstall path. It builds this repository with
 CGO_ENABLED=0, sets up Node/npm and uv, installs the requested providers and exports
-paths. No token/key inputs, release fetching of lminstall itself or manual tags.
+paths and LMINSTALL_ROOT so later status/upgrade/uninstall commands use the same
+prefix. No token/key inputs, release fetching of lminstall itself or manual tags.
 It fails when a requested provider is unavailable; it never silently skips one.
 
 ## CI evidence and exceptions

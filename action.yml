@@ -42,8 +42,11 @@ runs:
         if [ -z "$INSTALL_ROOT" ]; then INSTALL_ROOT="$(echo "$RUNNER_TEMP" | tr '\\' '/')/lminstall-providers"; fi
         export LMINSTALL_ACTION_TOOL="$tool" LMINSTALL_ACTION_ROOT="$INSTALL_ROOT"
         python - <<'PY'
-        import os,subprocess
+        import os,subprocess,uuid
         providers=os.environ['PROVIDERS'].split()
         if not providers: raise SystemExit('providers input must name at least one provider')
         subprocess.run([os.environ['LMINSTALL_ACTION_TOOL'],'install',*providers,'--root',os.environ['LMINSTALL_ACTION_ROOT']],check=True)
+        delimiter=uuid.uuid4().hex
+        with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as env_file:
+            env_file.write('LMINSTALL_ROOT<<'+delimiter+'\n'+os.environ['LMINSTALL_ACTION_ROOT']+'\n'+delimiter+'\n')
         PY
