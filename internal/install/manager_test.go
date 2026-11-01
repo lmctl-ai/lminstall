@@ -95,6 +95,9 @@ func TestRefusesUnknownUnsafeAndUnownedPaths(t *testing.T) {
 	if _, e := m.Apply(context.Background(), "uninstall", "tool"); e == nil {
 		t.Fatal("removed unowned directory")
 	}
+	if b, e := os.ReadFile(filepath.Join(dir, "user-data")); e != nil || string(b) != "mine" {
+		t.Fatalf("unowned data changed: %q %v", b, e)
+	}
 }
 func TestManifestDataDefinesCommandsAndPlatforms(t *testing.T) {
 	m, f := fixture(t)
