@@ -27,6 +27,8 @@ or partial install is repaired on the next install. Upgrade asks the same offici
 channel for its newest version, then verifies it. Stop a provider before upgrading
 on Windows or when its own package manager requires it. Uninstall removes only the
 provider's owned directory, not shared runtime caches or external installations.
+Release status checks both its payload and stable PATH launcher; a missing or
+changed launcher is broken and the next install repairs it.
 On modern Windows, owned files use POSIX-style namespace deletion so cached image
 sections can be released without a delay loop. A running executable can still
 prevent deletion: stop that provider and repeat uninstall; the ownership marker
@@ -37,7 +39,9 @@ remove its named lock only after confirming that installer process has exited.
 
 No application timeouts, sleeps, output caps, model prompts or authentication.
 Child output streams to stderr; JSON remains on stdout. Verification requires a
-successful `--version` with a version number. Install failures are errors, never
+successful `--version` with a version number. Release archives and updater
+artifacts must also report the selected tag/manifest version as a complete version
+token (a leading `v` and surrounding banner text are accepted). Install failures are errors, never
 reported as installed. `status` reports absent/incomplete/broken/installed or
 unavailable; its query exit is 0. Exit 1 is an operation failure, 2 invalid CLI/data,
 3 a declared unavailable distribution. A real failure dominates unavailable rows.
@@ -49,7 +53,11 @@ fixture. The manifest is [providers.json](internal/install/providers.json).
 `list --json` enumerates it; available means a recipe exists, not a claimed live
 model certification. No API keys are needed to install or verify versions. GitHub release lookup falls
 back from API quota errors to public release redirects and the publisher's
-checksum asset; it does not ask for tokens or wait on a retry timer.
+checksum asset; it does not ask for tokens or wait on a retry timer. A successful
+API response with a missing/null/empty asset digest uses the declared checksum
+asset from that same release. Missing, malformed, conflicting or incorrect
+checksums fail before executing the artifact; releases never skip integrity checks.
+All metadata, script and artifact requests require HTTPS through every redirect.
 
 | ID | Official channel / prerequisite |
 | --- | --- |
@@ -124,8 +132,22 @@ Adding a provider is data: id, binary, official source link and per-OS recipe.
 Generic channels are npm, uv tools, Git projects, checksum update manifests, GitHub release archives and downloaded official
 installer steps. Recipes contain argv arrays, owned paths and environment values;
 root paths never interpolate into shell code. Use `--manifest FILE` to explicitly
-load another trusted manifest. Manifests execute installation code and are trusted
+replace the embedded catalog with another trusted manifest; provider IDs and
+per-platform recipes are never inherited. Downloaded installer steps require a
+`digest: "sha256:<64 hex characters>"`; a mismatch prevents execution.
+Manifests execute installation code and are trusted
 configuration; official source/provenance review is part of adding an entry.
+
+The embedded Muse bootstrap scripts have reviewed SHA-256 content pins. An upstream
+script change fails closed and requires reviewing and updating its catalog hash;
+the bootstrap still chooses its upstream provider payload. Action dependencies
+use full commit IDs. These pins do not freeze provider versions: npm `@latest`,
+Miniplayer's official Git default branch and Hermes's official Git HEAD remain
+intentional newest-version sources for install/upgrade. npm/uv integrity and HTTPS
+protect transfers; they do not make mutable upstream publishers reproducible or
+protect against a compromised publisher. A full provider lockfile/signature system
+would be a separate design, outside these fixes. Pin this Action to a reviewed full
+commit ID in consumers; `@main` below is the moving development example.
 
 ```sh
 go test ./...
@@ -134,6 +156,8 @@ CGO_ENABLED=0 go build -trimpath -o build/lminstall ./cmd/lminstall
 ```
 
 Offline tests use fake runners, TLS fixture downloads and child test executables.
-They cover idempotency, upgrade/PATH stability, ownership, checksum failure,
+They cover catalog replacement, exit contracts, idempotency, upgrade/PATH stability,
+ownership, missing/null digests, HTTPS downgrade refusal, exact selected versions, checksum failure,
 archive traversal and >1 MiB payload/output. Real installs run only in Actions.
+Run `python3 scripts/mutate.py` to check production fault controls against the suite.
 No releases or tags are published manually.
