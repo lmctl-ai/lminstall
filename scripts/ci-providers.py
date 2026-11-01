@@ -7,6 +7,7 @@ binary=str(pathlib.Path(sys.argv[1]).resolve())
 root=pathlib.Path(os.environ['RUNNER_TEMP'])/'lminstall live root 雪'
 summary=[]
 def call(op,name):
+ print(json.dumps({'provider':name,'operation':op,'event':'start'}),flush=True)
  p=subprocess.run([binary,op,name,'--root',str(root),'--json'],stdout=subprocess.PIPE,stderr=None)
  try:rows=json.loads(p.stdout);row=rows[0]
  except (ValueError,IndexError):row={'reason':p.stdout.decode(errors='replace')}
@@ -33,10 +34,11 @@ for entry in catalog:
  finally:
   if entry['state']!='unavailable':
    code,removed=call('uninstall',name)
-   if code!=0:failed=True;record['cleanup_error']=str(removed)
+   if code!=0:failed=True;record['state']='failed';record['cleanup_error']=str(removed)
    code,status=call('status',name)
-   if code!=0 or status['state']!='absent':failed=True;record['cleanup_error']=str(status)
+   if code!=0 or status['state']!='absent':failed=True;record['state']='failed';record['cleanup_status']=str(status)
   summary.append(record)
+  pathlib.Path('provider-results.json').write_text(json.dumps(summary,indent=2)+'\n',encoding='utf-8')
   print(json.dumps(record),flush=True)
 pathlib.Path('provider-results.json').write_text(json.dumps(summary,indent=2)+'\n',encoding='utf-8')
 with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as out:

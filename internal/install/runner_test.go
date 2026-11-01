@@ -28,7 +28,7 @@ func TestHelperProcess(t *testing.T) {
 			panic(e)
 		}
 		defer listener.Close()
-		fmt.Println("READY")
+		fmt.Printf("READY %s\n", listener.Addr().String())
 		for {
 			c, e := listener.Accept()
 			if e != nil {
@@ -50,10 +50,10 @@ func TestHelperProcess(t *testing.T) {
 			panic(e)
 		}
 		text, e := bufio.NewReader(ready).ReadString('\n')
-		if e != nil || strings.TrimSpace(text) != "READY" {
+		if e != nil || !strings.HasPrefix(text, "READY ") {
 			panic("child readiness")
 		}
-		fmt.Printf("tool 1.2.3\n%d\n", child.Process.Pid)
+		fmt.Printf("tool 1.2.3\n%d\n%s\n", child.Process.Pid, strings.TrimSpace(strings.TrimPrefix(text, "READY ")))
 		os.Exit(0)
 	}
 	if mode != "1" {
@@ -62,10 +62,8 @@ func TestHelperProcess(t *testing.T) {
 	os.Stdout.WriteString("tool 1.2.3\n" + strings.Repeat("x", 1200000))
 	os.Exit(0)
 }
-func TestWindowsOwnedWorkersDrainBeforeFileOperations(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("Windows job lifetime")
-	}
+func TestOwnedWorkersDrainBeforeFileOperations(t *testing.T) {
+
 	exe, _ := os.Executable()
 	file := filepath.Join(t.TempDir(), "held.bin")
 	out, e := (ExecRunner{Log: io.Discard}).Run(context.Background(), []string{exe, "-test.run=^TestHelperProcess$"}, "", map[string]string{"LMINSTALL_HELPER": "job-parent", "LMINSTALL_LOCK_FILE": file}, true)
@@ -73,13 +71,18 @@ func TestWindowsOwnedWorkersDrainBeforeFileOperations(t *testing.T) {
 		t.Fatal(e, out)
 	}
 	lines := strings.Fields(out)
-	pid, e := strconv.Atoi(lines[len(lines)-1])
+	pid, e := strconv.Atoi(lines[2])
 	if e != nil {
 		t.Fatal(out)
 	}
-	if child, e := os.FindProcess(pid); e == nil {
-		defer child.Kill()
-	} // Only the helper PID this test started.
+
+	if c, e := net.Dial("tcp", lines[3]); e == nil {
+		c.Close()
+		if child, e := os.FindProcess(pid); e == nil {
+			child.Kill()
+		} // The live helper PID this test started.
+		t.Fatal("owned worker still accepts connections after command exit")
+	}
 	if e = os.Remove(file); e != nil {
 		t.Fatalf("owned worker still holds version-probe files: %v", e)
 	}
@@ -105,5 +108,45 @@ func TestWindowsShimLiteralPath(t *testing.T) {
 	out, e := (ExecRunner{Log: io.Discard}).Run(context.Background(), []string{file, "--version"}, "", nil, true)
 	if e != nil || strings.TrimSpace(out) != "tool 1.2.3" {
 		t.Fatal(e, out)
+	}
+}
+
+func TestReleaseLauncherUsesLiteralStablePath(t *testing.T) {
+	m, _ := fixture(t)
+	m.OS = runtime.GOOS
+	m.Root = filepath.Join(m.Root, "space 雪 & literal")
+	dir := m.dir("tool")
+	exe, _ := os.Executable()
+	name := "tool"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	rel := filepath.Join("payload-version", "bin", name)
+	dest, _ := relative(dir, rel)
+	os.MkdirAll(filepath.Dir(dest), 0700)
+	in, e := os.Open(exe)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer in.Close()
+	out, e := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0755)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = io.Copy(out, in); e != nil {
+		t.Fatal(e)
+	}
+	out.Close()
+	p, _ := m.Manifest.Provider("tool")
+	if e = m.publishLauncher(p, rel); e != nil {
+		t.Fatal(e)
+	}
+	launcher := filepath.Join(dir, "bin", "tool")
+	if runtime.GOOS == "windows" {
+		launcher += ".cmd"
+	}
+	text, e := (ExecRunner{Log: io.Discard}).Run(context.Background(), []string{launcher, "-test.run=^TestHelperProcess$"}, "", map[string]string{"LMINSTALL_HELPER": "1"}, true)
+	if e != nil || len(text) != 1200011 {
+		t.Fatal(e, len(text))
 	}
 }
