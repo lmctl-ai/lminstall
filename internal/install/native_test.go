@@ -499,3 +499,27 @@ func TestKimiPrefersOfficialArchiveAndVerifiesBinary(t *testing.T) {
 		})
 	}
 }
+
+func TestHermesPrivateHomeKeepsInstalledRustToolchain(t *testing.T) {
+	caller := t.TempDir()
+	os.MkdirAll(filepath.Join(caller, ".rustup"), 0700)
+	t.Setenv("HOME", caller)
+	t.Setenv("USERPROFILE", caller)
+	t.Setenv("RUSTUP_HOME", "")
+	t.Setenv("CARGO_HOME", filepath.Join(caller, "old-cargo"))
+	m, _ := fixture(t)
+	dir := m.dir("tool")
+	r := Recipe{Channel: "hermes", Env: map[string]string{"HOME": "{dir}/home", "USERPROFILE": "{dir}/home"}}
+	env := m.env(r, dir)
+	if env["RUSTUP_HOME"] != filepath.Join(caller, ".rustup") {
+		t.Fatalf("installed Rust configuration hidden: %v", env)
+	}
+	if env["CARGO_HOME"] != filepath.Join(dir, "cache", "cargo") {
+		t.Fatal("Cargo writes must remain owned", env)
+	}
+	override := t.TempDir()
+	t.Setenv("RUSTUP_HOME", override)
+	if got := m.env(r, dir)["RUSTUP_HOME"]; got != override {
+		t.Fatal("explicit toolchain home ignored", got)
+	}
+}

@@ -73,6 +73,27 @@ func (m *Manager) env(r Recipe, dir string) map[string]string {
 	for k, v := range r.Env {
 		e[k] = m.expand(v, dir)
 	}
+	if r.Channel == "hermes" {
+		// Source builds may need an existing rustup toolchain. Isolating HOME must
+		// not hide that prerequisite; downloads/build caches remain in our prefix.
+		if _, ok := e["CARGO_HOME"]; !ok {
+			e["CARGO_HOME"] = filepath.Join(dir, "cache", "cargo")
+		}
+		if _, ok := e["RUSTUP_HOME"]; !ok {
+			root := os.Getenv("RUSTUP_HOME")
+			if root == "" {
+				if home, err := os.UserHomeDir(); err == nil {
+					candidate := filepath.Join(home, ".rustup")
+					if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+						root = candidate
+					}
+				}
+			}
+			if root != "" {
+				e["RUSTUP_HOME"] = root
+			}
+		}
+	}
 	return e
 }
 func (m *Manager) verify(ctx context.Context, p Provider, r Recipe, bin string) (string, error) {

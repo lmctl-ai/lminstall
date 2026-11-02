@@ -108,6 +108,10 @@ to the user. POSIX Git/Xcode tools, native compilers and system libraries such a
 Linux libatomic/Chromium libraries may require an administrator. lminstall never
 runs sudo or a system package manager: its POSIX PM environment excludes those
 commands. Windows can bootstrap the official checksum-pinned portable Git.
+When a dependency must build from source (for example cryptography on Intel
+macOS), provide its native compiler/Rust prerequisites. The existing RUSTUP_HOME
+(or caller ~/.rustup) remains available despite private HOME; Cargo downloads and
+build caches use the owned prefix. lminstall does not install a system toolchain.
 No user shell profiles or system services are changed; native Antigravity's
 PATH/service setup handoff and Kimi's migration of external legacy shims are
 intentionally omitted to respect owned-prefix boundaries. Installation does not configure a model or API key.
