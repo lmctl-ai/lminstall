@@ -355,3 +355,38 @@ func TestHermesBootstrapMirrorKeepsIntegrityPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestKimiOfficialPlatformKeys(t *testing.T) {
+	for _, tc := range []struct{ os, arch, key string }{{"linux", "amd64", "linux-x64"}, {"linux", "arm64", "linux-arm64"}, {"darwin", "amd64", "darwin-x64"}, {"darwin", "arm64", "darwin-arm64"}, {"windows", "amd64", "win32-x64"}, {"windows", "arm64", "win32-arm64"}} {
+		t.Run(tc.key, func(t *testing.T) {
+			data := []byte("native fixture")
+			h := sha256.Sum256(data)
+			sum := hex.EncodeToString(h[:])
+			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/latest":
+					fmt.Fprint(w, "1.2.3")
+				case "/binaries/1.2.3/manifest.json":
+					fmt.Fprintf(w, `{"version":"1.2.3","platforms":{%q:{"filename":"kimi-native","checksum":%q}}}`, tc.key, sum)
+				default:
+					w.Write(data)
+				}
+			}))
+			defer s.Close()
+			old := client
+			client = s.Client()
+			defer func() { client = old }()
+			m, _ := fixture(t)
+			m.OS, m.Arch = tc.os, tc.arch
+			bin := "bin/tool"
+			if tc.os == "windows" {
+				bin += ".exe"
+			}
+			m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "kimi", UpdateURL: s.URL, Bin: bin, BinDir: "bin"}
+			result, e := m.Apply(context.Background(), "install", "tool")
+			if e != nil || result.State != "installed" {
+				t.Fatalf("official %s key: %+v %v", tc.key, result, e)
+			}
+		})
+	}
+}

@@ -70,7 +70,11 @@ func (m *Manager) kimi(ctx context.Context, p Provider, r Recipe, dir string) (s
 	if e = getJSON(ctx, base+"/binaries/"+url.PathEscape(version)+"/manifest.json", &manifest); e != nil {
 		return "", "", e
 	}
-	target := m.OS + "-" + m.expand("{assetarch}", dir)
+	osName := m.OS
+	if m.OS == "windows" {
+		osName = "win32"
+	}
+	target := osName + "-" + m.expand("{assetarch}", dir)
 	asset, ok := manifest.Platforms[target]
 	if !ok || manifest.Version != version || !sha256Hex.MatchString(asset.Checksum) || asset.Filename == "" || strings.ContainsAny(asset.Filename, "/\\") {
 		return "", "", fmt.Errorf("invalid Kimi manifest for %s", target)
