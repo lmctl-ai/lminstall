@@ -1,5 +1,7 @@
 name: oauth-mock
 on:
+  push:
+    branches: ['claude/**']   # lets a new workflow run before it exists on main
   pull_request:
   workflow_dispatch:
     inputs:
