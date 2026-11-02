@@ -21,17 +21,17 @@ type pinnedTool struct {
 	} `json:"artifacts"`
 }
 
-func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) (string, string, error) {
+func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) (string, string, string, error) {
 	env := m.env(r, dir)
 	git := "git"
 	if _, e := prerequisite(git); e != nil {
 		if m.OS != "windows" {
-			return "", "", fmt.Errorf("Hermes requires Git; install Git with your system package manager (macOS: Xcode Command Line Tools); lminstall never uses sudo")
+			return "", "", "", fmt.Errorf("Hermes requires Git; install Git with your system package manager (macOS: Xcode Command Line Tools); lminstall never uses sudo")
 		}
 		var err error
 		git, err = m.hermesGit(ctx, dir, env)
 		if err != nil {
-			return "", "", err
+			return "", "", "", err
 		}
 		env["PATH"] = filepath.Dir(git) + string(os.PathListSeparator) + os.Getenv("PATH")
 	}
@@ -43,7 +43,7 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 	var e error
 	env["PATH"], e = withoutSystemInstallers(dir, env["PATH"])
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	run := func(args []string, cwd string, capture bool) (string, error) {
 		return m.Runner.Run(ctx, args, cwd, env, capture)
@@ -51,23 +51,24 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 	// The current official installer defaults to the latest stable release, not HEAD.
 	tag, e := hermesStable(ctx)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
-	source := filepath.Join(dir, "source")
-	if _, e = os.Stat(filepath.Join(source, ".git")); os.IsNotExist(e) {
-		_, e = run([]string{git, "clone", "--depth", "1", "--branch", tag, r.Repository, source}, "", false)
-	} else if e == nil {
-		_, e = run([]string{git, "-C", source, "fetch", "--depth", "1", "origin", "tag", tag}, "", false)
-		if e == nil {
-			_, e = run([]string{git, "-C", source, "checkout", "--detach", "FETCH_HEAD"}, "", false)
-		}
-	}
+	source, e := os.MkdirTemp(dir, "source-build-")
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
+	}
+	keep := false
+	defer func() {
+		if !keep {
+			os.RemoveAll(source)
+		}
+	}()
+	if _, e = run([]string{git, "clone", "--depth", "1", "--branch", tag, r.Repository, source}, "", false); e != nil {
+		return "", "", "", e
 	}
 	lockBytes, e := os.ReadFile(filepath.Join(source, "pm", "lock.json"))
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	var lock struct {
 		Packages struct {
@@ -76,7 +77,7 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 		} `json:"packages"`
 	}
 	if e = json.Unmarshal(lockBytes, &lock); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	target := m.OS + "-" + m.expand("{assetarch}", dir)
 	if m.OS == "windows" {
@@ -87,40 +88,40 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 	}
 	uv, e := m.hermesUV(ctx, dir, target, lock.Packages.UV)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	if _, e = run([]string{uv, "--version"}, source, false); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	pyVersion := strings.SplitN(lock.Packages.Python.Version, "+", 2)[0]
 	parts := strings.Split(pyVersion, ".")
 	if len(parts) < 2 {
-		return "", "", fmt.Errorf("Hermes lock has no Python version")
+		return "", "", "", fmt.Errorf("Hermes lock has no Python version")
 	}
 	minor := strings.Join(parts[:2], ".")
 	if _, e = run([]string{uv, "python", "install", "--no-bin", "--no-registry", minor}, source, false); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	python, e := run([]string{uv, "python", "find", "--managed-python", minor}, source, true)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	python = strings.TrimSpace(python)
 	if !filepath.IsAbs(python) {
-		return "", "", fmt.Errorf("uv returned no absolute Python path: %q", python)
+		return "", "", "", fmt.Errorf("uv returned no absolute Python path: %q", python)
 	}
 	// These are the official package-manager entry points, not installer scripts.
 	// PM resolves its pinned tools and hash-verified uv.lock dependency graph.
 	if _, e = run([]string{python, "-m", "pm.cli", "install"}, source, false); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	if _, e = run([]string{python, "-I", "-B", "-X", "utf8", filepath.Join(source, "hermes_cli", "source_completion.py"), "--source", source}, source, false); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	home := env["HERMES_HOME"]
 	for _, sub := range []string{"cron", "sessions", "logs", "pairing", "hooks", "image_cache", "audio_cache", "memories", "skills"} {
 		if e = os.MkdirAll(filepath.Join(home, sub), 0700); e != nil {
-			return "", "", e
+			return "", "", "", e
 		}
 	}
 	for dest, template := range map[string]string{".env": ".env.example", "config.yaml": "cli-config.yaml.example"} {
@@ -131,13 +132,29 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 				b = nil
 			}
 			if e = os.WriteFile(dst, b, 0600); e != nil {
-				return "", "", e
+				return "", "", "", e
 			}
 		}
 	}
 	// The upstream launcher is a provider command, not an installation script.
 	// Its private HOME/PM store stays in the managed prefix.
-	return m.expand(r.Bin, dir), m.expand(r.BinDir, dir), nil
+	configured := filepath.FromSlash(m.expand(r.Bin, dir))
+	prefix := "source" + string(filepath.Separator)
+	if !strings.HasPrefix(configured, prefix) {
+		return "", "", "", fmt.Errorf("Hermes binary must be relative to source/")
+	}
+	entry := filepath.Join(source, strings.TrimPrefix(configured, prefix))
+	bin, err := filepath.Rel(dir, entry)
+	if err != nil {
+		return "", "", "", err
+	}
+	verified, err := m.verifiedVersion(ctx, p, r, bin, tag)
+	if err != nil {
+		return "", "", "", err
+	}
+	// Reuse the versioned-bundle launcher: only a verified checkout is selected.
+	keep = true
+	return bin, "bin", verified, nil
 }
 
 func hermesStable(ctx context.Context) (string, error) {

@@ -52,25 +52,25 @@ func muslHost() bool {
 
 // The official Kimi installer permits a bare-binary download as an alternative
 // to its tarball. Both are verified against this same binary checksum.
-func (m *Manager) kimi(ctx context.Context, p Provider, r Recipe, dir string) (string, string, error) {
+func (m *Manager) kimi(ctx context.Context, p Provider, r Recipe, dir string) (string, string, string, error) {
 	if m.OS == "linux" && muslHost() {
-		return "", "", fmt.Errorf("Kimi native builds do not support musl; official alternative: npm install -g @moonshot-ai/kimi-code")
+		return "", "", "", fmt.Errorf("Kimi native builds do not support musl; official alternative: npm install -g @moonshot-ai/kimi-code")
 	}
 	base := strings.TrimSuffix(r.UpdateURL, "/")
 	b, e := getBytes(ctx, base+"/latest")
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	version := strings.TrimSpace(string(b))
 	if !releaseVersion.MatchString(version) {
-		return "", "", fmt.Errorf("invalid Kimi release version %q", version)
+		return "", "", "", fmt.Errorf("invalid Kimi release version %q", version)
 	}
 	var manifest struct {
 		Version   string
 		Platforms map[string]struct{ Filename, Checksum string }
 	}
 	if e = getJSON(ctx, base+"/binaries/"+url.PathEscape(version)+"/manifest.json", &manifest); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	osName := m.OS
 	if m.OS == "windows" {
@@ -79,44 +79,45 @@ func (m *Manager) kimi(ctx context.Context, p Provider, r Recipe, dir string) (s
 	target := osName + "-" + m.expand("{assetarch}", dir)
 	asset, ok := manifest.Platforms[target]
 	if !ok || manifest.Version != version || !sha256Hex.MatchString(asset.Checksum) || asset.Filename == "" || strings.ContainsAny(asset.Filename, "/\\") {
-		return "", "", fmt.Errorf("invalid Kimi manifest for %s", target)
+		return "", "", "", fmt.Errorf("invalid Kimi manifest for %s", target)
 	}
 	bin := m.expand(r.Bin, dir)
 	dest, e := relative(dir, bin)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	stage, e := os.MkdirTemp(dir, "kimi-stage-")
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	defer os.RemoveAll(stage)
 	candidate := filepath.Join(stage, filepath.Base(dest))
 	candidate, e = fetchKimiPayload(ctx, base, version, target, asset.Filename, asset.Checksum, stage, candidate)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	if e = os.Chmod(candidate, 0755); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	relativeCandidate, e := filepath.Rel(dir, candidate)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
-	if e = m.verifySelectedVersion(ctx, p, r, relativeCandidate, version); e != nil {
-		return "", "", e
+	verified, e := m.verifiedVersion(ctx, p, r, relativeCandidate, version)
+	if e != nil {
+		return "", "", "", e
 	}
 	if _, err := os.Stat(dest); err == nil {
 		if e = copyExecutable(dest, dest+".bak"); e != nil {
-			return "", "", e
+			return "", "", "", e
 		}
 	}
 	if e = os.Rename(candidate, dest); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	region := filepath.Join(dir, "home", ".kimi-code", "region")
 	if e = os.MkdirAll(filepath.Dir(region), 0700); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	f, e := os.OpenFile(region, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if e == nil {
@@ -125,13 +126,13 @@ func (m *Manager) kimi(ctx context.Context, p Provider, r Recipe, dir string) (s
 	} else if os.IsExist(e) {
 		e = nil
 	}
-	return bin, m.expand(r.BinDir, dir), e
+	return bin, m.expand(r.BinDir, dir), verified, e
 }
 
 // Muse's shell/PowerShell launcher selects a channel, then verifies the native
 // artifact's declared SHA-256 and exact size. No launcher code or login is needed
 // for a public artifact; a private/restricted release is an explicit error.
-func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (string, string, error) {
+func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (string, string, string, error) {
 	var channel struct {
 		Channel, Version, ManifestURL, Urgency string
 		NotificationText                       *string
@@ -145,11 +146,11 @@ func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (s
 		NotificationText *string `json:"notification_text"`
 	}
 	if e := getJSON(ctx, r.UpdateURL, &raw); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	channel.Channel, channel.Version, channel.ManifestURL, channel.Urgency, channel.NotificationText = raw.Channel, raw.Version, raw.ManifestURL, raw.Urgency, raw.NotificationText
 	if channel.Channel != "muse-stable" || !releaseVersion.MatchString(channel.Version) || channel.ManifestURL == "" || channel.NotificationText == nil || (channel.Urgency != "none" && channel.Urgency != "encouraged" && channel.Urgency != "must_download") {
-		return "", "", fmt.Errorf("invalid Muse channel manifest")
+		return "", "", "", fmt.Errorf("invalid Muse channel manifest")
 	}
 	var release struct {
 		Version   string
@@ -160,7 +161,7 @@ func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (s
 		}
 	}
 	if e := getJSON(ctx, channel.ManifestURL, &release); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	arch := "x86"
 	if m.Arch == "arm64" {
@@ -172,44 +173,45 @@ func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (s
 	}
 	asset, ok := release.Artifacts[arch+"_"+osName]
 	if !ok || release.Version != channel.Version || release.Algorithm != "sha256" || !sha256Hex.MatchString(asset.Checksum) || asset.Size <= 0 {
-		return "", "", fmt.Errorf("invalid Muse release manifest for %s_%s", arch, osName)
+		return "", "", "", fmt.Errorf("invalid Muse release manifest for %s_%s", arch, osName)
 	}
 	bin := m.expand(r.Bin, dir)
 	dest, e := relative(dir, bin)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	// Stage outside PATH so both integrity checks finish before publishing bytes.
 	stage, e := os.MkdirTemp(dir, "muse-stage-")
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	defer os.RemoveAll(stage)
 	candidate := filepath.Join(stage, filepath.Base(dest))
 	if e = download(ctx, asset.URL, candidate, "sha256:"+asset.Checksum); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	stat, e := os.Stat(candidate)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	if stat.Size() != asset.Size {
-		return "", "", fmt.Errorf("Muse artifact size mismatch: got %d expected %d", stat.Size(), asset.Size)
+		return "", "", "", fmt.Errorf("Muse artifact size mismatch: got %d expected %d", stat.Size(), asset.Size)
 	}
 	if e = os.Chmod(candidate, 0755); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	relativeCandidate, e := filepath.Rel(dir, candidate)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
-	if e = m.verifySelectedVersion(ctx, p, r, relativeCandidate, channel.Version); e != nil {
-		return "", "", e
+	verified, e := m.verifiedVersion(ctx, p, r, relativeCandidate, channel.Version)
+	if e != nil {
+		return "", "", "", e
 	}
 	if e = os.Rename(candidate, dest); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
-	return bin, m.expand(r.BinDir, dir), nil
+	return bin, m.expand(r.BinDir, dir), verified, nil
 }
 
 // Match the official archive-first order. The script authenticates the extracted

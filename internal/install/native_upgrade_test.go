@@ -17,9 +17,10 @@ import (
 
 // Read the actual candidate path. Returning a preselected fake version would
 // miss validation accidentally performed against the old installed pathname.
-type candidateVersionRunner struct{}
+type candidateVersionRunner struct{ calls int }
 
-func (candidateVersionRunner) Run(_ context.Context, args []string, _ string, _ map[string]string, _ bool) (string, error) {
+func (r *candidateVersionRunner) Run(_ context.Context, args []string, _ string, _ map[string]string, _ bool) (string, error) {
+	r.calls++
 	b, err := os.ReadFile(args[0])
 	return string(b), err
 }
@@ -78,7 +79,8 @@ func TestNativeRejectedUpgradeKeepsBinaryAndReceipt(t *testing.T) {
 			})
 			defer func() { client = previous }()
 			m, _ := fixture(t)
-			m.Runner = candidateVersionRunner{}
+			runner := &candidateVersionRunner{}
+			m.Runner = runner
 			recipe := Recipe{Channel: "update-manifest", UpdateURL: base + "/update", Bin: "bin/tool", BinDir: "bin", ArchiveBinary: "kimi"}
 			if kind == "kimi" {
 				recipe.Channel = "kimi"
@@ -97,6 +99,9 @@ func TestNativeRejectedUpgradeKeepsBinaryAndReceipt(t *testing.T) {
 			first, err := m.Apply(context.Background(), "install", "tool")
 			if err != nil {
 				t.Fatal(err)
+			}
+			if runner.calls != 1 {
+				t.Fatalf("verified candidate was executed %d times before installation completed", runner.calls)
 			}
 			before, err := os.ReadFile(first.Binary)
 			if err != nil {

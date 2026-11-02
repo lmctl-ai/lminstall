@@ -116,17 +116,21 @@ func (m *Manager) verify(ctx context.Context, p Provider, r Recipe, bin string) 
 var versionToken = regexp.MustCompile(`(?:^|[^A-Za-z0-9.])v?([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?)(?:$|[^A-Za-z0-9.+-])`)
 
 func (m *Manager) verifySelectedVersion(ctx context.Context, p Provider, r Recipe, bin, expected string) error {
-	out, e := m.verify(ctx, p, r, bin)
-	if e != nil {
-		return e
+	_, err := m.verifiedVersion(ctx, p, r, bin, expected)
+	return err
+}
+func (m *Manager) verifiedVersion(ctx context.Context, p Provider, r Recipe, bin, expected string) (string, error) {
+	out, err := m.verify(ctx, p, r, bin)
+	if err != nil {
+		return "", err
 	}
 	want := strings.TrimPrefix(expected, "v")
 	for _, match := range versionToken.FindAllStringSubmatch(out, -1) {
 		if match[1] == want {
-			return nil
+			return out, nil
 		}
 	}
-	return fmt.Errorf("%s version mismatch: selected %s, executable reported %s", p.ID, expected, out)
+	return "", fmt.Errorf("%s version mismatch: selected %s, executable reported %s", p.ID, expected, out)
 }
 
 func owned(dir, id string) error {
@@ -179,7 +183,7 @@ func (m *Manager) Status(ctx context.Context, id string) (Result, error) {
 		res.Reason = e.Error()
 		return res, nil
 	}
-	if r.Channel == "release" {
+	if r.Channel == "release" || r.Channel == "hermes" {
 		if e = m.checkLauncher(p, rec.Bin); e != nil {
 			res.State = "broken"
 			res.Reason = e.Error()
@@ -272,19 +276,23 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 			}
 		}
 	}
-	bin, bindir, e := m.install(ctx, p, r, dir)
+	bin, bindir, v, e := m.install(ctx, p, r, dir)
 	if e != nil {
 		res.State = "incomplete"
 		res.Reason = e.Error()
 		return res, e
 	}
-	v, e := m.verify(ctx, p, r, bin)
-	if e != nil {
-		res.State = "broken"
-		res.Reason = e.Error()
-		return res, e
+	// Native paths already checked the candidate at its private pathname. A
+	// second invocation after replacement could fail after publication.
+	if v == "" {
+		v, e = m.verify(ctx, p, r, bin)
+		if e != nil {
+			res.State = "broken"
+			res.Reason = e.Error()
+			return res, e
+		}
 	}
-	if r.Channel == "release" {
+	if r.Channel == "release" || r.Channel == "hermes" {
 		if e = m.publishLauncher(p, bin); e != nil {
 			return res, e
 		}
@@ -300,7 +308,7 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 	res.BinDir, _ = relative(dir, bindir)
 	return res, nil
 }
-func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string) (string, string, error) {
+func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string) (string, string, string, error) {
 	run := func(args []string, cwd string) error {
 		a := make([]string, len(args))
 		for i, s := range args {
@@ -361,7 +369,7 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 	default:
 		e = fmt.Errorf("unknown install channel %q", r.Channel)
 	}
-	return m.expand(r.Bin, dir), m.expand(r.BinDir, dir), e
+	return m.expand(r.Bin, dir), m.expand(r.BinDir, dir), "", e
 }
 
 // LookPath is only used for prerequisites; managed provider verification always uses its owned path.

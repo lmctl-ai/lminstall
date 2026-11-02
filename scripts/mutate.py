@@ -3,6 +3,10 @@
 import pathlib,shutil,subprocess,tempfile
 root=pathlib.Path(__file__).resolve().parents[1]
 cases=[
+ ('gzip trailer','internal/install/archive.go','_, e = io.Copy(io.Discard, gz)','e = nil'),
+ ('rooted extraction','internal/install/archive.go','root.OpenFile(rel, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode.Perm()&0755)','os.OpenFile(filepath.Join(dest, rel), os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode.Perm()&0755)'),
+ ('Hermes isolated checkout','internal/install/hermes.go','source, e := os.MkdirTemp(dir, "source-build-")','source, e := filepath.Join(dir, "source"), error(nil)'),
+ ('verified candidate reused','internal/install/manager.go','if v == "" {','if true {'),
  ('Hermes installed Rust','internal/install/manager.go','if r.Channel == "hermes" {','if false {'),
  ('Kimi archive binary hash','internal/install/native.go','if !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), checksum) {','if false && !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), checksum) {'),
  ('native receipt migration','internal/install/manager.go','&& rec.Channel != r.Channel {','&& false {'),
@@ -15,8 +19,8 @@ cases=[
  ('missing release digest','internal/install/archive.go','if digest == "" {\n\t\tif r.Checksums == "" {','if false {\n\t\tif r.Checksums == "" {'),
  ('redirect downgrade','internal/install/archive.go','if next.URL.Scheme != "https" {','if false {'),
  ('stable launcher','internal/install/manager.go','if e = m.checkLauncher(p, rec.Bin); e != nil {','if false {'),
- ('release version','internal/install/archive.go','if e = m.verifySelectedVersion(ctx, p, r, rel, release.Tag); e != nil {','if false {'),
- ('update version','internal/install/update.go','if e = m.verifySelectedVersion(ctx, p, r, stagedBin, meta.Version); e != nil {','if e = m.verifySelectedVersion(ctx, p, r, stagedBin, meta.Version); false {'),
+ ('release version', 'internal/install/archive.go', 'verified, e := m.verifiedVersion(ctx, p, r, rel, release.Tag)\n\tif e != nil {', 'verified, e := m.verifiedVersion(ctx, p, r, rel, release.Tag)\n\tif false {'),
+ ('update version','internal/install/update.go','verified, e := m.verifiedVersion(ctx, p, r, stagedBin, meta.Version)\n\tif e != nil {','verified, e := m.verifiedVersion(ctx, p, r, stagedBin, meta.Version)\n\tif false {'),
  ('Kimi catalog','internal/install/providers.json','"channel": "kimi"','"channel": "npm"'),
  ('Muse catalog','internal/install/providers.json','"channel": "muse"','"channel": "steps"'),
  ('Hermes catalog','internal/install/providers.json','"channel": "hermes"','"channel": "project"'),

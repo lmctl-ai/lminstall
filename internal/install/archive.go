@@ -337,29 +337,29 @@ func releaseChecksum(ctx context.Context, info releaseInfo, filename, name strin
 	return "", fmt.Errorf("release %s has no checksum asset %s", info.Tag, filename)
 }
 
-func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string) (string, string, error) {
+func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string) (string, string, string, error) {
 	req, e := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+r.Repository+"/releases/latest", nil)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	req.Header.Set("User-Agent", "lminstall")
 	resp, e := secureDo(req)
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	defer resp.Body.Close()
 	var release releaseInfo
 	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
 		release, e = m.publicRelease(ctx, r, dir)
 		if e != nil {
-			return "", "", e
+			return "", "", "", e
 		}
 	} else {
 		if resp.StatusCode != 200 {
-			return "", "", fmt.Errorf("official release lookup for %s: %s", r.Repository, resp.Status)
+			return "", "", "", fmt.Errorf("official release lookup for %s: %s", r.Repository, resp.Status)
 		}
 		if e = json.NewDecoder(resp.Body).Decode(&release); e != nil {
-			return "", "", e
+			return "", "", "", e
 		}
 	}
 	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", strings.TrimPrefix(release.Tag, "v")), dir)
@@ -372,30 +372,30 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 		}
 	}
 	if url == "" {
-		return "", "", fmt.Errorf("official release %s has no %s asset", release.Tag, name)
+		return "", "", "", fmt.Errorf("official release %s has no %s asset", release.Tag, name)
 	}
 	if digest == "" {
 		if r.Checksums == "" {
-			return "", "", fmt.Errorf("release %s has no digest or declared checksum asset", release.Tag)
+			return "", "", "", fmt.Errorf("release %s has no digest or declared checksum asset", release.Tag)
 		}
 		digest, e = releaseChecksum(ctx, release, r.Checksums, name)
 		if e != nil {
-			return "", "", e
+			return "", "", "", e
 		}
 	}
 	archive := filepath.Join(dir, name)
 	if e = download(ctx, url, archive, digest); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	stage, e := os.MkdirTemp(dir, "payload-stage-")
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	// Successful versioned payloads remain owned until uninstall.
 	// Keep bundle-relative resources alongside the executable, under a stable PATH directory.
 	if e = extractArchive(archive, stage); e != nil {
 		os.RemoveAll(stage)
-		return "", "", e
+		return "", "", "", e
 	}
 	os.Remove(archive)
 	binary := p.Binary
@@ -413,24 +413,25 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 		return nil
 	})
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	if len(matches) != 1 {
-		return "", "", fmt.Errorf("release bundle must contain one %s, found %d", binary, len(matches))
+		return "", "", "", fmt.Errorf("release bundle must contain one %s, found %d", binary, len(matches))
 	}
 	if e = os.Chmod(matches[0], 0755); e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
 	// A versioned payload never renames or overwrites a running executable.
 	// Publishing the stable launcher happens only after successful --version.
 	rel, e := filepath.Rel(dir, matches[0])
 	if e != nil {
-		return "", "", e
+		return "", "", "", e
 	}
-	if e = m.verifySelectedVersion(ctx, p, r, rel, release.Tag); e != nil {
-		return "", "", e
+	verified, e := m.verifiedVersion(ctx, p, r, rel, release.Tag)
+	if e != nil {
+		return "", "", "", e
 	}
-	return rel, "bin", nil
+	return rel, "bin", verified, nil
 }
 
 // Mirrors may replace an unavailable transport, never failed integrity, local
