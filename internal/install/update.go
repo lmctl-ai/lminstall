@@ -81,7 +81,9 @@ func (m *Manager) updateManifest(ctx context.Context, p Provider, r Recipe, dir 
 	if e = os.MkdirAll(filepath.Dir(dest), 0700); e != nil {
 		return "", "", "", e
 	}
-	if e = os.Rename(candidate, dest); e != nil {
+	// Publish an unexecuted copy: Windows may retain an image/scanner handle
+	// on the verified candidate pathname after its process has exited.
+	if e = copyExecutable(candidate, dest); e != nil {
 		return "", "", "", e
 	}
 	return bin, m.expand(r.BinDir, dir), verified, nil
