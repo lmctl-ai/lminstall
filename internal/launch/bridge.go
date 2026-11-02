@@ -62,25 +62,9 @@ func startBridge(ctx context.Context, p Profile, credential, placeholder string,
 		resp.Header.Del("Set-Cookie")
 		resp.Header.Del("Content-Length")
 		resp.ContentLength = -1
-		for name, values := range resp.Header {
-			for i, v := range values {
-				values[i] = redactString(v, patterns)
-			}
-			resp.Header[name] = values
-		}
-		original := resp.Body
-		r, w := io.Pipe()
-		resp.Body = r
-		go func() {
-			filter := redactor(w, patterns)
-			_, err := io.Copy(filter, original)
-			closeErr := filter.Close()
-			original.Close()
-			if err == nil {
-				err = closeErr
-			}
-			w.CloseWithError(err)
-		}()
+		sanitizeMetadata(resp.Header, patterns)
+		sanitizeMetadata(resp.Trailer, patterns)
+		resp.Body = newRedactingBody(resp.Body, patterns, func() { sanitizeMetadata(resp.Trailer, patterns) })
 		return nil
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

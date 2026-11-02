@@ -141,10 +141,14 @@ func TestBridgeBindsOnlyInMemoryAndRedactsResponses(t *testing.T) {
 			t.Error("wrong upstream binding")
 		}
 		w.Header().Set("X-Echo", key)
+		w.Header().Set("X-"+hex.EncodeToString([]byte(key)), "reflected name")
+		w.Header().Set("Trailer", "X-Late-Key, X-Benign")
 		for _, p := range independentEncodings(key) {
 			w.Write(p)
 			w.Write([]byte("\n"))
 		}
+		w.Header().Set("X-Late-Key", base64.StdEncoding.EncodeToString([]byte(key)))
+		w.Header().Set("X-Benign", "kept")
 	}))
 	defer upstream.Close()
 	p := Profile{BaseURL: upstream.URL, Spec: install.LaunchSpec{Headers: map[string]string{"Authorization": "Bearer {credential}"}}}
@@ -166,6 +170,11 @@ func TestBridgeBindsOnlyInMemoryAndRedactsResponses(t *testing.T) {
 	}
 	assertAbsent(t, body, key)
 	assertAbsent(t, []byte(response.Header.Get("X-Echo")), key)
+	metadata, _ := json.Marshal(map[string]http.Header{"headers": response.Header, "trailers": response.Trailer})
+	assertAbsent(t, metadata, key)
+	if response.Trailer.Get("X-Benign") != "kept" {
+		t.Fatal("benign trailer lost")
+	}
 	if !called {
 		t.Fatal("no real HTTP request")
 	}

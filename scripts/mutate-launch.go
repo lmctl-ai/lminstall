@@ -75,13 +75,15 @@ func run() error {
 		{"duplicated v1", "internal/launch/profile.go", `strings.TrimRight(base, "/") + "/v1"`, `strings.TrimRight(base, "/") + "/v1/v1"`},
 		{"adapter files omitted", "internal/launch/profile.go", "for _, f := range p.Spec.Files {", "for _, f := range []install.LaunchFile{} {"},
 		{"inherited secret", "internal/launch/run.go", "ok && keep[strings.ToUpper(k)]", `ok && (keep[strings.ToUpper(k)] || strings.Contains(k,"SECRET"))`},
-		{"response credential reaches child", "internal/launch/bridge.go", "filter := redactor(w, patterns)", "filter := redactor(w, nil)"},
+		{"response credential reaches child", "internal/launch/body.go", "body.filter = redactor(&body.output, patterns)", "body.filter = redactor(&body.output, nil)"},
 		{"redaction disabled", "internal/launch/redact.go", "patterns: patterns", "patterns: nil"},
 		{"foreign profile adopted", "internal/launch/profile.go", "e != nil || len(entries) != 0", "e != nil || (false && len(entries) != 0)"},
 		{"native npm through Node", "internal/install/launch_exec.go", `if strings.EqualFold(filepath.Ext(path), ".exe") {`, `if false && strings.EqualFold(filepath.Ext(path), ".exe") {`},
 		{"wrong reply accepted", "cmd/lminstall-mock-e2e/main.go", "if observed != wanted {", "if false {"},
 		{"unicode credential reflected", "internal/launch/redact.go", "set[upper.String()] = true", "delete(set, upper.String())"},
 		{"routing environment omitted", "internal/launch/profile.go", "env[k] = expand(a, v)", "env[k] = expand(a, v)[:0]"},
+		{"response headers unfiltered", "internal/launch/bridge.go", "sanitizeMetadata(resp.Header, patterns)", "sanitizeMetadata(resp.Header, nil)"},
+		{"response trailers unfiltered", "internal/launch/body.go", "b.afterEOF()", "if false { b.afterEOF() }"},
 		{"foreign gateway allowed", "internal/launch/cleanup.go", "got != expected", "false && got != expected"},
 	}
 	originals := map[string]string{}
