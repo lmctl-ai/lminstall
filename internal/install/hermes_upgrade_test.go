@@ -81,6 +81,9 @@ func TestHermesRejectedBuildKeepsWorkingCheckoutAndReceipt(t *testing.T) {
 	defer func() { client = old }()
 	lock, _ := json.Marshal(map[string]any{"packages": map[string]any{"uv": map[string]any{"version": "0.13.5", "artifacts": map[string]any{"linux-x64": map[string]string{"url": base + "/uv.zip", "sha256": hex.EncodeToString(hash[:])}}}, "python": map[string]string{"version": "3.14.3"}}})
 	lockBytes = lock
+	previousFetch := fetchSource
+	fetchSource = func(_ context.Context, _, _, dest string) error { return writeFixtureSource(dest, lock) }
+	defer func() { fetchSource = previousFetch }()
 	m, _ := fixture(t)
 	runner := &hermesUpgradeRunner{lock: lock, version: version}
 	m.Runner = runner
@@ -135,4 +138,11 @@ func sourceTarball(t *testing.T, lock []byte) []byte {
 	tw.Close()
 	gz.Close()
 	return buf.Bytes()
+}
+
+func writeFixtureSource(dest string, lock []byte) error {
+	if err := os.MkdirAll(filepath.Join(dest, "pm"), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dest, "pm", "lock.json"), lock, 0o600)
 }

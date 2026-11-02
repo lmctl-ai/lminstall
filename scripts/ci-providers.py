@@ -34,14 +34,16 @@ if not target.exists():
  except OSError: shutil.copy2(node,target)
 # Vendor wrapper scripts need the OS's own shell/sysctl, never an installer.
 if sys.platform=='win32':
- os_dirs=[os.path.join(os.environ.get('SystemRoot','C:\\Windows'),'System32')]
+ sysroot=os.environ.get('SystemRoot','C:\\Windows')
+ os_dirs=[os.path.join(sysroot,'System32'),os.path.join(sysroot,'System32','WindowsPowerShell','v1.0')]  # OS components: .cmd shims run through PowerShell
 else:
  os_dirs=[]
  if sys.platform=='darwin': os_dirs=['/usr/sbin','/sbin']
- sh=shutil.which('sh')
- for d in (empty,nodeonly):
-  link=d/'sh'
-  if sh and not link.exists(): link.symlink_to(sh)
+ for name in ('sh','dirname'):  # runtime needs of vendor wrapper scripts, not installers
+  found=shutil.which(name)
+  for d in (empty,nodeonly):
+   link=d/name
+   if found and not link.exists(): link.symlink_to(found)
 check=('npm','git','uv') if sys.platform=='win32' else ('npm','git','uv','curl','tar','unzip')
 for tool in check:
  for d in (empty,nodeonly): assert shutil.which(tool,path=os.pathsep.join([str(d)]+os_dirs)) is None,(tool,d)

@@ -94,9 +94,9 @@ All metadata, script and artifact requests require HTTPS through every redirect.
 | [qwen](https://github.com/QwenLM/qwen-code) | Vendor standalone archive (bundles its own Node), verified against release `SHA256SUMS`; no host Node |
 | [pi](https://github.com/earendil-works/pi) | npm @earendil-works/pi-coding-agent through the Go npm client (scripts never run); runs on Node |
 | [dsh](https://github.com/deepseek-ai/deepseek-harness) | npm @deepseek-ai/dsh through the Go npm client; runs on Node |
-| [miniplayer](https://github.com/lmctl-ai/miniplayer) | Its GitHub source tarball installed by the Go npm client (no git); runs on Node |
+| [miniplayer](https://github.com/lmctl-ai/miniplayer) | Its GitHub source tarball installed by the Go npm client (no git executable); runs on Node |
 | [lmplayer](https://github.com/lmctl-ai/lmplayer/releases) | Official release archive; SHA-256 from release metadata or official SHA256SUMS; no Node runtime |
-| [hermes](https://hermes-agent.nousresearch.com/docs/getting-started/installation) | Latest stable source as GitHub's tag tarball (no git client); checksum-pinned uv, Python 3.14 and the vendor's pinned PM install run from the owned prefix |
+| [hermes](https://hermes-agent.nousresearch.com/docs/getting-started/installation) | Latest stable tag cloned in-process (pure-Go git, depth 1; no git executable); checksum-pinned uv, Python 3.14 and the vendor's pinned PM install run from the owned prefix |
 | [agy](https://antigravity.google/download) | Official updater manifest and SHA-512 artifact, without its system setup handoff |
 | [muse](https://dev.meta.ai/lp/muse-code) | Native muse-stable channel/release manifest, SHA-256 and exact artifact size; restricted downloads fail without authentication |
 | claudemock | Unavailable as a standalone CLI: it is an lmctl fixture. Enable LMCTL_ENABLE_MOCK_PROVIDER=1 in lmctl. No fake installation/version is substituted. |

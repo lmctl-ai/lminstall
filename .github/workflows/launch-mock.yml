@@ -41,11 +41,17 @@ jobs:
         run: go run scripts/mutate-launch.go
       - name: Download checksummed lmmock release (mock API server is built in; no Node/compiler)
         run: '"$RUNNER_TEMP/mock-e2e.exe" --prepare "$RUNNER_TEMP/provider-mock-tools"'
-      - name: Build lminspect (traffic recorder) to discover what each client needs mocked
+      - name: Fetch lminspect (traffic recorder) to discover what each client needs mocked
         if: matrix.os == 'ubuntu-24.04'
-        run: |
-          git clone --depth 1 https://github.com/lmctl-ai/lminspect "$RUNNER_TEMP/lminspect-src"
-          go -C "$RUNNER_TEMP/lminspect-src" build -trimpath -o "$RUNNER_TEMP/lminspect" .
+        run: git clone --depth 1 https://github.com/lmctl-ai/lminspect "$RUNNER_TEMP/lminspect-src"
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        if: matrix.os == 'ubuntu-24.04'
+        with:
+          go-version-file: ${{ runner.temp }}/lminspect-src/go.mod
+          cache: false
+      - name: Build lminspect
+        if: matrix.os == 'ubuntu-24.04'
+        run: go -C "$RUNNER_TEMP/lminspect-src" build -trimpath -o "$RUNNER_TEMP/lminspect" .
       - name: Configure real routing, run real tool, assert exact reply and audited POST
         env:
           PROVIDER: ${{ matrix.provider }}

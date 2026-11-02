@@ -162,6 +162,9 @@ func TestHermesBootstrapsVerifiedUVAndOfficialPM(t *testing.T) {
 			defer func() { client = old }()
 			lock, _ := json.Marshal(map[string]any{"packages": map[string]any{"other": map[string]any{"artifacts": map[string]any{"linux-x64": []string{"multiple artifacts"}}}, "uv": map[string]any{"version": "0.13.5", "artifacts": map[string]any{"linux-x64": map[string]string{"url": base + "/uv.zip", "sha256": sum}}}, "python": map[string]any{"version": "3.14.3+build"}}})
 			lockBytes = lock
+			previousFetch := fetchSource
+			fetchSource = func(_ context.Context, _, _, dest string) error { return writeFixtureSource(dest, lock) }
+			defer func() { fetchSource = previousFetch }()
 			m, _ := fixture(t)
 			f := &hermesRunner{t: t, lock: lock, python: filepath.Join(m.Root, "python", "python")}
 			m.Runner = f

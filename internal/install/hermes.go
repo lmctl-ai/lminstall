@@ -10,6 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"runtime"
 	"strings"
 )
@@ -52,8 +55,8 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 			os.RemoveAll(source)
 		}
 	}()
-	// Fetch the tagged source as GitHub's tarball; no git client is started.
-	if e = fetchGitHubTag(ctx, r.Repository, tag, source); e != nil {
+	// Fetch the tagged source with the in-process git client (no git executable).
+	if e = fetchSource(ctx, r.Repository, tag, source); e != nil {
 		return "", "", "", e
 	}
 	lockBytes, e := os.ReadFile(filepath.Join(source, "pm", "lock.json"))
@@ -299,21 +302,22 @@ func withoutSystemInstallers(dir, path string) (string, error) {
 
 var githubRepoURL = regexp.MustCompile(`^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?$`)
 
-// fetchGitHubTag extracts https://github.com/<owner>/<repo> at tag into dest.
+// fetchSource is replaceable by tests that have no git server.
+var fetchSource = fetchGitHubTag
+
+// fetchGitHubTag makes a depth-1 clone of https://github.com/<owner>/<repo> at
+// tag into dest with the pure-Go git implementation. No git executable is
+// started, and the result is a real checkout (Hermes inspects its .git state).
 func fetchGitHubTag(ctx context.Context, repository, tag, dest string) error {
-	m := githubRepoURL.FindStringSubmatch(repository)
-	if m == nil {
+	if !githubRepoURL.MatchString(repository) {
 		return fmt.Errorf("unsupported source repository %q", repository)
 	}
-	f, e := os.CreateTemp(filepath.Dir(dest), ".source-")
-	if e != nil {
-		return e
-	}
-	name := f.Name()
-	f.Close()
-	defer os.Remove(name)
-	if e = download(ctx, "https://codeload.github.com/"+m[1]+"/"+m[2]+"/tar.gz/refs/tags/"+url.PathEscape(tag), name, ""); e != nil {
-		return e
-	}
-	return extractNPMTarball(name, dest)
+	_, e := git.PlainCloneContext(ctx, dest, false, &git.CloneOptions{
+		URL:           repository,
+		ReferenceName: plumbing.NewTagReferenceName(tag),
+		SingleBranch:  true,
+		Depth:         1,
+		Tags:          git.NoTags,
+	})
+	return e
 }
