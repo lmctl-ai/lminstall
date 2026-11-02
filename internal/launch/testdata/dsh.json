@@ -1,0 +1,3 @@
+{
+  "home/dsh/cordis.patch.yml": "[{\"config\":{\"model\":\"mock-agent\",\"provider\":\"deepseek-official\"},\"id\":\"agent-default-model\"}]"
+}

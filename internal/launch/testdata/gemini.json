@@ -1,0 +1,3 @@
+{
+  "home/.gemini/settings.json": "{\"general\":{\"disableAutoUpdate\":true},\"privacy\":{\"usageStatisticsEnabled\":false},\"security\":{\"auth\":{\"selectedType\":\"gemini-api-key\"}},\"telemetry\":{\"enabled\":false}}"
+}

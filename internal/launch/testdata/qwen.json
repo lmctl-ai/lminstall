@@ -1,0 +1,3 @@
+{
+  "home/.qwen/settings.json": "{\"security\":{\"auth\":{\"selectedType\":\"openai\"}},\"telemetry\":{\"enabled\":false}}"
+}

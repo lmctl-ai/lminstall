@@ -1,0 +1,3 @@
+{
+  "home/.kimi-code/config.toml": "default_model=\"mock\"\n[providers.mock]\ntype=\"openai\"\nbase_url=\"http://127.0.0.1:12345/v1\"\napi_key=\"PLACEHOLDER\"\n[models.mock]\nprovider=\"mock\"\nmodel=\"mock-agent\"\nmax_context_size=128000\n"
+}

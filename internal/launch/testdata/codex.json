@@ -1,0 +1,3 @@
+{
+  "home/codex/config.toml": "model=\"mock-agent\"\nmodel_provider=\"mock\"\n[model_providers.mock]\nname=\"loopback\"\nbase_url=\"http://127.0.0.1:12345/v1\"\nwire_api=\"responses\"\nenv_key=\"MOCK_API_KEY\"\n[analytics]\nenabled=false\n"
+}

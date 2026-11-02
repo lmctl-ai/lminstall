@@ -27,6 +27,108 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "anthropic-messages",
+            "base_shape": "origin",
+            "adapter": "claude",
+            "adapter_version": 1,
+            "environment": {
+              "CLAUDE_CONFIG_DIR": "{home}/claude",
+              "ANTHROPIC_BASE_URL": "{base}",
+              "ANTHROPIC_AUTH_TOKEN": "{credential}",
+              "ANTHROPIC_API_KEY": "",
+              "ANTHROPIC_MODEL": "{model}",
+              "DISABLE_PROMPT_CACHING": "1",
+              "DISABLE_TELEMETRY": "1",
+              "DISABLE_ERROR_REPORTING": "1",
+              "DISABLE_AUTOUPDATER": "1",
+              "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+              "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1",
+              "CLAUDE_CODE_DISABLE_THINKING": "1",
+              "ANTHROPIC_DEFAULT_OPUS_MODEL": "{model}",
+              "ANTHROPIC_DEFAULT_SONNET_MODEL": "{model}",
+              "ANTHROPIC_DEFAULT_HAIKU_MODEL": "{model}",
+              "ANTHROPIC_DEFAULT_FABLE_MODEL": "{model}",
+              "CLAUDE_CODE_SUBAGENT_MODEL": "{model}"
+            },
+            "files": [],
+            "argv_prefix": [
+              "--model",
+              "{model}",
+              "--bare",
+              "--setting-sources",
+              "",
+              "--strict-mcp-config",
+              "--mcp-config",
+              "{\"mcpServers\":{}}"
+            ],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [
+              "x-api-key"
+            ],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": true,
+            "protocol": "anthropic-messages",
+            "base_shape": "origin",
+            "adapter": "claude",
+            "adapter_version": 1,
+            "environment": {
+              "CLAUDE_CONFIG_DIR": "{home}/claude",
+              "ANTHROPIC_BASE_URL": "{base}",
+              "ANTHROPIC_AUTH_TOKEN": "{credential}",
+              "ANTHROPIC_API_KEY": "",
+              "ANTHROPIC_MODEL": "{model}",
+              "DISABLE_PROMPT_CACHING": "1",
+              "DISABLE_TELEMETRY": "1",
+              "DISABLE_ERROR_REPORTING": "1",
+              "DISABLE_AUTOUPDATER": "1",
+              "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+              "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1",
+              "CLAUDE_CODE_DISABLE_THINKING": "1",
+              "ANTHROPIC_DEFAULT_OPUS_MODEL": "{model}",
+              "ANTHROPIC_DEFAULT_SONNET_MODEL": "{model}",
+              "ANTHROPIC_DEFAULT_HAIKU_MODEL": "{model}",
+              "ANTHROPIC_DEFAULT_FABLE_MODEL": "{model}",
+              "CLAUDE_CODE_SUBAGENT_MODEL": "{model}"
+            },
+            "files": [],
+            "argv_prefix": [
+              "--model",
+              "{model}",
+              "--bare",
+              "--setting-sources",
+              "",
+              "--strict-mcp-config",
+              "--mcp-config",
+              "{\"mcpServers\":{}}"
+            ],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [
+              "x-api-key"
+            ],
+            "model_default": "glm-5.3-flash",
+            "qualification": "wp107 direct Ollama Cloud Claude; prior Ubuntu proof",
+            "isolation_environment": []
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@anthropic-ai/claude-code"
       }
     },
     {
@@ -55,6 +157,46 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-responses",
+            "base_shape": "v1",
+            "adapter": "codex",
+            "adapter_version": 1,
+            "environment": {
+              "CODEX_HOME": "{home}/codex",
+              "MOCK_API_KEY": "{credential}"
+            },
+            "files": [
+              {
+                "path": "codex/config.toml",
+                "format": "text",
+                "text": "model={model_json}\nmodel_provider=\"mock\"\n[model_providers.mock]\nname=\"loopback\"\nbase_url={v1_json}\nwire_api=\"responses\"\nenv_key=\"MOCK_API_KEY\"\n[analytics]\nenabled=false\n"
+              }
+            ],
+            "argv_prefix": [],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@openai/codex"
       }
     },
     {
@@ -83,6 +225,67 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "gemini-content",
+            "base_shape": "origin",
+            "adapter": "gemini",
+            "adapter_version": 1,
+            "environment": {
+              "GEMINI_API_KEY": "{credential}",
+              "GOOGLE_GEMINI_BASE_URL": "{base}",
+              "GEMINI_CLI_HOME": "{home}",
+              "GEMINI_TELEMETRY_ENABLED": "false",
+              "GEMINI_CLI_TRUST_WORKSPACE": "true"
+            },
+            "files": [
+              {
+                "path": ".gemini/settings.json",
+                "format": "json",
+                "data": {
+                  "security": {
+                    "auth": {
+                      "selectedType": "gemini-api-key"
+                    }
+                  },
+                  "telemetry": {
+                    "enabled": false
+                  },
+                  "privacy": {
+                    "usageStatisticsEnabled": false
+                  },
+                  "general": {
+                    "disableAutoUpdate": true
+                  }
+                }
+              }
+            ],
+            "argv_prefix": [
+              "--model",
+              "{model}"
+            ],
+            "headers": {
+              "x-goog-api-key": "{credential}"
+            },
+            "remove_headers": [],
+            "model_default": "gemini-2.5-flash",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@google/gemini-cli"
       }
     },
     {
@@ -111,6 +314,48 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "copilot",
+            "adapter_version": 1,
+            "environment": {
+              "COPILOT_PROVIDER_BASE_URL": "{v1}",
+              "COPILOT_PROVIDER_API_KEY": "{credential}",
+              "COPILOT_PROVIDER_TYPE": "openai",
+              "COPILOT_MODEL": "{model}",
+              "COPILOT_OFFLINE": "true",
+              "COPILOT_TELEMETRY": "off",
+              "COPILOT_SKIP_UPDATE_CHECK": "1"
+            },
+            "files": [],
+            "argv_prefix": [
+              "--model",
+              "{model}"
+            ],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@github/copilot"
       }
     },
     {
@@ -139,6 +384,69 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "opencode",
+            "adapter_version": 1,
+            "environment": {
+              "OPENCODE_CONFIG": "{home}/provider.json",
+              "OPENCODE_DISABLE_MODELS_FETCH": "true",
+              "OPENCODE_DISABLE_AUTOUPDATE": "true",
+              "OPENCODE_DISABLE_DEFAULT_PLUGINS": "true",
+              "LMPLAYER_CONFIG": "{home}/provider.json"
+            },
+            "files": [
+              {
+                "path": "provider.json",
+                "format": "json",
+                "data": {
+                  "provider": {
+                    "mock": {
+                      "npm": "@ai-sdk/openai-compatible",
+                      "name": "mock",
+                      "options": {
+                        "baseURL": "{v1}",
+                        "apiKey": "{credential}"
+                      },
+                      "models": {
+                        "{model}": {
+                          "name": "{model}"
+                        }
+                      }
+                    }
+                  },
+                  "model": "mock/{model}",
+                  "permission": {
+                    "*": "deny"
+                  }
+                }
+              }
+            ],
+            "argv_prefix": [],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "opencode-ai"
       }
     },
     {
@@ -182,6 +490,43 @@
             "KIMI_CODE_HOME": "{dir}/home/.kimi-code"
           }
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "kimi",
+            "adapter_version": 1,
+            "environment": {},
+            "files": [
+              {
+                "path": ".kimi-code/config.toml",
+                "format": "text",
+                "text": "default_model=\"mock\"\n[providers.mock]\ntype=\"openai\"\nbase_url={v1_json}\napi_key={credential_json}\n[models.mock]\nprovider=\"mock\"\nmodel={model_json}\nmax_context_size=128000\n"
+              }
+            ],
+            "argv_prefix": [],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@moonshot-ai/kimi-code"
       }
     },
     {
@@ -210,6 +555,60 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "qwen",
+            "adapter_version": 1,
+            "environment": {
+              "OPENAI_API_KEY": "{credential}",
+              "OPENAI_BASE_URL": "{v1}",
+              "OPENAI_MODEL": "{model}",
+              "QWEN_TELEMETRY_ENABLED": "false"
+            },
+            "files": [
+              {
+                "path": ".qwen/settings.json",
+                "format": "json",
+                "data": {
+                  "security": {
+                    "auth": {
+                      "selectedType": "openai"
+                    }
+                  },
+                  "telemetry": {
+                    "enabled": false
+                  }
+                }
+              }
+            ],
+            "argv_prefix": [
+              "--model",
+              "{model}"
+            ],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@qwen-code/qwen-code"
       }
     },
     {
@@ -244,6 +643,63 @@
             "--ignore-scripts"
           ]
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "pi",
+            "adapter_version": 1,
+            "environment": {
+              "PI_CODING_AGENT_DIR": "{home}/pi"
+            },
+            "files": [
+              {
+                "path": "pi/models.json",
+                "format": "json",
+                "data": {
+                  "providers": {
+                    "mock": {
+                      "baseUrl": "{v1}",
+                      "api": "openai-completions",
+                      "apiKey": "{credential}",
+                      "models": [
+                        {
+                          "id": "{model}"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ],
+            "argv_prefix": [
+              "--provider",
+              "mock",
+              "--model",
+              "{model}"
+            ],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@earendil-works/pi-coding-agent"
       }
     },
     {
@@ -272,6 +728,57 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "anthropic-messages",
+            "base_shape": "v1",
+            "adapter": "dsh",
+            "adapter_version": 1,
+            "environment": {
+              "DSH_HOME": "{home}/dsh",
+              "DEEPSEEK_API_KEY": "{credential}",
+              "DEEPSEEK_BASE_URL": "{v1}",
+              "DSH_TELEMETRY_DISABLED": "1"
+            },
+            "files": [
+              {
+                "path": "dsh/cordis.patch.yml",
+                "format": "json",
+                "data": [
+                  {
+                    "id": "agent-default-model",
+                    "config": {
+                      "provider": "deepseek-official",
+                      "model": "{model}"
+                    }
+                  }
+                ]
+              }
+            ],
+            "argv_prefix": [],
+            "headers": {
+              "Authorization": "Bearer {credential}",
+              "x-api-key": "{credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@deepseek-ai/dsh"
       }
     },
     {
@@ -300,6 +807,57 @@
           "bin_dir": "npm",
           "args": []
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-responses",
+            "base_shape": "v1",
+            "adapter": "miniplayer",
+            "adapter_version": 1,
+            "environment": {
+              "OPENAI_API_KEY": "{credential}",
+              "MINIPLAYER_CONFIG": "{home}/miniplayer.json"
+            },
+            "files": [
+              {
+                "path": "miniplayer.json",
+                "format": "json",
+                "data": {
+                  "provider": {
+                    "openai": {
+                      "baseURL": "{v1}",
+                      "apiKey": "{credential}"
+                    }
+                  }
+                }
+              }
+            ],
+            "argv_prefix": [
+              "run",
+              "--model",
+              "openai/{model}"
+            ],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "miniplayer"
       }
     },
     {
@@ -315,6 +873,69 @@
           "bin_dir": "",
           "checksums": "SHA256SUMS"
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "lmplayer",
+            "adapter_version": 1,
+            "environment": {
+              "OPENCODE_CONFIG": "{home}/provider.json",
+              "OPENCODE_DISABLE_MODELS_FETCH": "true",
+              "OPENCODE_DISABLE_AUTOUPDATE": "true",
+              "OPENCODE_DISABLE_DEFAULT_PLUGINS": "true",
+              "LMPLAYER_CONFIG": "{home}/provider.json"
+            },
+            "files": [
+              {
+                "path": "provider.json",
+                "format": "json",
+                "data": {
+                  "provider": {
+                    "mock": {
+                      "npm": "@ai-sdk/openai-compatible",
+                      "name": "mock",
+                      "options": {
+                        "baseURL": "{v1}",
+                        "apiKey": "{credential}"
+                      },
+                      "models": {
+                        "{model}": {
+                          "name": "{model}"
+                        }
+                      }
+                    }
+                  },
+                  "model": "mock/{model}",
+                  "permission": {
+                    "*": "deny"
+                  }
+                }
+              }
+            ],
+            "argv_prefix": [],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": ""
       }
     },
     {
@@ -379,6 +1000,53 @@
             "NO_COLOR": "1"
           }
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "hermes",
+            "adapter_version": 1,
+            "environment": {
+              "HERMES_HOME": "{home}/hermes",
+              "OPENAI_BASE_URL": "{v1}",
+              "OPENAI_API_KEY": "{credential}",
+              "HERMES_TELEMETRY_ENABLED": "false",
+              "HERMES_RUNTIME_DIR": "{install}/tools"
+            },
+            "files": [],
+            "argv_prefix": [
+              "chat",
+              "--native",
+              "--provider",
+              "custom",
+              "--base-url",
+              "{v1}",
+              "--model",
+              "{model}",
+              "--safe-mode"
+            ],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": ""
       }
     },
     {
@@ -422,6 +1090,55 @@
             "LOCALAPPDATA": "{dir}/home/local"
           }
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "gemini-content",
+            "base_shape": "origin",
+            "adapter": "agy",
+            "adapter_version": 1,
+            "environment": {
+              "GEMINI_API_KEY": "{credential}",
+              "GOOGLE_GEMINI_BASE_URL": "{base}",
+              "AGY_TELEMETRY_DISABLED": "1"
+            },
+            "files": [
+              {
+                "path": ".gemini/antigravity-cli/settings.json",
+                "format": "json",
+                "data": {
+                  "modelProvider": "gemini",
+                  "telemetry": {
+                    "enabled": false
+                  }
+                }
+              }
+            ],
+            "argv_prefix": [
+              "--model",
+              "{model}"
+            ],
+            "headers": {
+              "x-goog-api-key": "{credential}"
+            },
+            "remove_headers": [],
+            "model_default": "gemini-3.8-flash",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": ""
       }
     },
     {
@@ -462,6 +1179,24 @@
             "LOCALAPPDATA": "{dir}/home/local"
           }
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": ""
       }
     },
     {
@@ -472,6 +1207,24 @@
         "*": {
           "unavailable": "ClaudeMock is a built-in lmctl test fixture, not a separately distributed CLI. Enable LMCTL_ENABLE_MOCK_PROVIDER=1 in lmctl; there is no standalone --version to install."
         }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": ""
       }
     }
   ]

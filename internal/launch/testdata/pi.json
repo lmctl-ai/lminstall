@@ -1,0 +1,3 @@
+{
+  "home/pi/models.json": "{\"providers\":{\"mock\":{\"api\":\"openai-completions\",\"apiKey\":\"PLACEHOLDER\",\"baseUrl\":\"http://127.0.0.1:12345/v1\",\"models\":[{\"id\":\"mock-agent\"}]}}}"
+}

@@ -15,10 +15,11 @@ type Manifest struct {
 	Providers []Provider `json:"providers"`
 }
 type Provider struct {
-	ID      string            `json:"id"`
-	Binary  string            `json:"binary"`
-	Source  string            `json:"source"`
-	Recipes map[string]Recipe `json:"recipes"`
+	LaunchConfig LaunchConfig      `json:"launch_config"`
+	ID           string            `json:"id"`
+	Binary       string            `json:"binary"`
+	Source       string            `json:"source"`
+	Recipes      map[string]Recipe `json:"recipes"`
 }
 type Recipe struct {
 	Checksums     string            `json:"checksums"`
