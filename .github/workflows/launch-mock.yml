@@ -2,7 +2,18 @@ name: launch-mock
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      lmmock_ref:
+        description: 'Build lmmock from source at this ref (e.g. main) instead of the latest release'
+        type: string
+        default: ''
   workflow_call:
+    inputs:
+      lmmock_ref:
+        type: string
+        default: ''
+env:
+  LMMOCK_REF: ${{ inputs.lmmock_ref }}
 permissions:
   contents: read
 concurrency:
@@ -40,7 +51,26 @@ jobs:
         if: matrix.os == 'ubuntu-24.04' && matrix.provider == 'claude'
         run: go run scripts/mutate-launch.go
       - name: Download checksummed lmmock release (mock API server is built in; no Node/compiler)
+        if: env.LMMOCK_REF == ''
         run: '"$RUNNER_TEMP/mock-e2e.exe" --prepare "$RUNNER_TEMP/provider-mock-tools"'
+      - name: Fetch lmmock source
+        if: env.LMMOCK_REF != ''
+        run: |
+          git clone https://github.com/lmctl-ai/lmmock "$RUNNER_TEMP/lmmock-src"
+          git -C "$RUNNER_TEMP/lmmock-src" checkout "$LMMOCK_REF"
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        if: env.LMMOCK_REF != ''
+        with:
+          go-version-file: ${{ runner.temp }}/lmmock-src/go.mod
+          cache: false
+      - name: Build lmmock from source (go build only; the mock is embedded)
+        if: env.LMMOCK_REF != ''
+        run: |
+          tools="$(echo "$RUNNER_TEMP" | tr '\\' '/')/provider-mock-tools"
+          mkdir -p "$tools"
+          exe=lmmock; if [ "$RUNNER_OS" = Windows ]; then exe=lmmock.exe; fi
+          go -C "$RUNNER_TEMP/lmmock-src" build -trimpath -o "$tools/$exe" ./cmd/lmmock
+          printf '{"Binary":"%s/%s","Version":"source-%s"}' "$tools" "$exe" "$LMMOCK_REF" > "$tools/settings.json"
       - name: Fetch lminspect (traffic recorder) to discover what each client needs mocked
         if: matrix.os == 'ubuntu-24.04'
         run: git clone --depth 1 https://github.com/lmctl-ai/lminspect "$RUNNER_TEMP/lminspect-src"
