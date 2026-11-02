@@ -17,6 +17,8 @@ import (
 	"strings"
 )
 
+const validKey = "mock-valid-key-138"
+const wrongKey = "mock-WRONG-key-138"
 const expected = "LMINSTALL_CONFIGURE_OK_138"
 const prompt = "Reply with exactly " + expected + ". Do not call any tools."
 
@@ -61,7 +63,7 @@ func run() error {
 		}
 		config := filepath.Join(root, "mock-config.json")
 		// toolCalls=false: coding CLIs always declare tools; the oracle needs a plain reply.
-		b, _ = json.Marshal(map[string]any{"text": expected, "toolCalls": false})
+		b, _ = json.Marshal(map[string]any{"text": expected, "toolCalls": false, "apiKey": validKey})
 		os.WriteFile(config, b, 0600)
 		exe, _ := os.Executable()
 		args := []string{"exec", "--builtin", "llm-api", "--config", config, "--audit-log", filepath.Join(root, "audit.jsonl"), "--", exe, "--child", "--provider", *provider, "--lminstall", *tool, "--out", root}
@@ -164,7 +166,7 @@ func run() error {
 	}
 	args := append([]string{"run", *provider, "--profile-dir", profile, "--"}, userArgs...)
 	cmd := exec.Command(*tool, args...)
-	cmd.Env = append(os.Environ(), "PROVIDER_MOCK_KEY=synthetic-mock-key-129")
+	cmd.Env = append(os.Environ(), "PROVIDER_MOCK_KEY="+validKey)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	e = cmd.Run()
@@ -220,6 +222,10 @@ func run() error {
 		}
 	}
 	result := map[string]any{"provider": *provider, "exit": 0, "reply": reply, "control": "CAUGHT wrong-expectation", "configured_with": "lminstall configure/run", "profile": profile, "action_profile_reused": *requireAction}
+	if e = invalidKeyCheck(*tool, args, root); e != nil {
+		return e
+	}
+	result["invalid_api_key"] = "rejected with 401 and surfaced as an error"
 	b, _ = json.MarshalIndent(result, "", "  ")
 	os.WriteFile(filepath.Join(root, "result.json"), b, 0600)
 	fmt.Println(string(b))
