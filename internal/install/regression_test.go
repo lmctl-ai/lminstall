@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -171,33 +170,16 @@ func TestReviewMissingStableLauncherMustRepair(t *testing.T) {
 	}
 }
 
-func TestDownloadedStepsRequireChecksum(t *testing.T) {
-	manifest, err := LoadManifest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range manifest.Providers {
-		for osName, recipe := range p.Recipes {
-			for _, step := range recipe.Steps {
-				if step.URL != "" {
-					// The JSON assertion also catches missing digest fields before Step gains one.
-					b, _ := json.Marshal(step)
-					var fields map[string]any
-					json.Unmarshal(b, &fields)
-					if fields["digest"] == nil || fields["digest"] == "" {
-						t.Errorf("%s/%s: downloaded installer must have a reviewed digest", p.ID, osName)
-					}
-				}
-			}
-		}
-	}
-	// A custom manifest must not reintroduce an unchecked downloaded installer.
+func TestDownloadedInstallersRefused(t *testing.T) {
 	m, _ := fixture(t)
 	recipe := m.Manifest.Providers[0].Recipes["*"]
 	recipe.Steps = []Step{{URL: "https://example.invalid/install.sh", File: "install.sh"}}
 	m.Manifest.Providers[0].Recipes["*"] = recipe
 	if Validate(m.Manifest) == nil {
-		t.Error("accepted downloaded step without integrity")
+		t.Fatal("accepted downloaded installer")
+	}
+	if _, err := m.Apply(context.Background(), "install", "tool"); err == nil {
+		t.Fatal("executed downloaded installer")
 	}
 }
 
@@ -301,34 +283,6 @@ func TestSelectedVersionMatchesCompleteToken(t *testing.T) {
 		err := m.verifySelectedVersion(context.Background(), m.Manifest.Providers[0], Recipe{}, "bin/tool", tc.want)
 		if (err == nil) != tc.ok {
 			t.Errorf("%q vs %q: %v", tc.want, tc.out, err)
-		}
-	}
-}
-
-func TestDownloadedStepChecksumBeforeExecution(t *testing.T) {
-	data := []byte("private fixture installer")
-	hash := sha256.Sum256(data)
-	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(data) }))
-	defer s.Close()
-	old := client
-	client = s.Client()
-	defer func() { client = old }()
-	for _, valid := range []bool{false, true} {
-		m, f := fixture(t)
-		digest := "sha256:" + strings.Repeat("0", 64)
-		if valid {
-			digest = "sha256:" + hex.EncodeToString(hash[:])
-		}
-		recipe := m.Manifest.Providers[0].Recipes["*"]
-		recipe.Steps = []Step{{URL: s.URL, File: "install.sh", Digest: digest}, {Args: []string{"fixture-installer"}}}
-		m.Manifest.Providers[0].Recipes["*"] = recipe
-		result, err := m.Apply(context.Background(), "install", "tool")
-		if valid {
-			if err != nil || result.State != "installed" {
-				t.Fatalf("valid script: %+v %v", result, err)
-			}
-		} else if err == nil || len(f.calls) != 0 {
-			t.Fatalf("unverified script executed: %+v %v calls=%v", result, err, f.calls)
 		}
 	}
 }

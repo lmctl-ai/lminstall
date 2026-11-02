@@ -19,6 +19,12 @@ func (r ExecRunner) Run(ctx context.Context, args []string, cwd string, env map[
 	if len(args) == 0 {
 		return "", fmt.Errorf("empty command")
 	}
+	for _, arg := range args {
+		ext := strings.ToLower(filepath.Ext(arg))
+		if ext == ".sh" || ext == ".ps1" {
+			return "", fmt.Errorf("installer scripts are unsupported: %s", arg)
+		}
+	}
 	program, e := prerequisite(args[0])
 	if e != nil {
 		return "", e
@@ -28,10 +34,16 @@ func (r ExecRunner) Run(ctx context.Context, args []string, cwd string, env map[
 	for _, item := range os.Environ() {
 		k, v, ok := strings.Cut(item, "=")
 		if ok {
+			if runtime.GOOS == "windows" {
+				k = strings.ToUpper(k)
+			}
 			merged[k] = v
 		}
 	}
 	for k, v := range env {
+		if runtime.GOOS == "windows" {
+			k = strings.ToUpper(k)
+		}
 		merged[k] = v
 	}
 	// PowerShell splatting passes literal array elements to Windows npm/provider .cmd shims.

@@ -285,14 +285,9 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 	steps := func() error {
 		for _, step := range r.Steps {
 			if step.URL != "" {
-				path, e := relative(dir, step.File)
-				if e != nil {
-					return e
-				}
-				if e = download(ctx, step.URL, path, step.Digest); e != nil {
-					return e
-				}
+				return fmt.Errorf("downloaded installer steps are unsupported; use native Go channels")
 			}
+
 			if len(step.Args) > 0 {
 				if e := run(step.Args, step.Cwd); e != nil {
 					return e
@@ -303,6 +298,12 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 	}
 	var e error
 	switch r.Channel {
+	case "kimi":
+		return m.kimi(ctx, p, r, dir)
+	case "muse":
+		return m.muse(ctx, p, r, dir)
+	case "hermes":
+		return m.hermes(ctx, p, r, dir)
 	case "npm":
 		a := []string{"npm", "install", "--global", "--prefix", filepath.Join(dir, "npm"), "--no-audit", "--no-fund", r.Package}
 		a = append(a, r.Args...)

@@ -38,11 +38,10 @@ type Recipe struct {
 	Unavailable   string            `json:"unavailable"`
 }
 type Step struct {
-	Digest string   `json:"digest"`
-	URL    string   `json:"url"`
-	File   string   `json:"file"`
-	Args   []string `json:"args"`
-	Cwd    string   `json:"cwd"`
+	URL  string   `json:"url"`
+	File string   `json:"file"`
+	Args []string `json:"args"`
+	Cwd  string   `json:"cwd"`
 }
 
 var safeID = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
@@ -64,8 +63,8 @@ func Validate(m Manifest) error {
 
 		for _, recipe := range p.Recipes {
 			for _, step := range recipe.Steps {
-				if step.URL != "" && !regexp.MustCompile(`^sha256:[a-fA-F0-9]{64}$`).MatchString(step.Digest) {
-					return fmt.Errorf("%s downloaded step requires a sha256 digest", p.ID)
+				if step.URL != "" {
+					return fmt.Errorf("%s: downloaded installer steps are unsupported; use native Go channels", p.ID)
 				}
 			}
 		}

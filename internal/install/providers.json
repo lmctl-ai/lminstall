@@ -144,28 +144,43 @@
     {
       "id": "kimi",
       "binary": "kimi",
-      "source": "https://moonshotai.github.io/kimi-code/en/guides/getting-started",
+      "source": "https://github.com/MoonshotAI/kimi-code",
       "recipes": {
         "linux": {
-          "channel": "npm",
-          "package": "@moonshot-ai/kimi-code@latest",
-          "bin": "npm/bin/kimi",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "kimi",
+          "bin": "bin/kimi",
+          "bin_dir": "bin",
+          "update_url": "https://code.kimi.com/kimi-code",
+          "env": {
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "KIMI_CODE_HOME": "{dir}/home/.kimi-code"
+          }
         },
         "darwin": {
-          "channel": "npm",
-          "package": "@moonshot-ai/kimi-code@latest",
-          "bin": "npm/bin/kimi",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "kimi",
+          "bin": "bin/kimi",
+          "bin_dir": "bin",
+          "update_url": "https://code.kimi.com/kimi-code",
+          "env": {
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "KIMI_CODE_HOME": "{dir}/home/.kimi-code"
+          }
         },
         "windows": {
-          "channel": "npm",
-          "package": "@moonshot-ai/kimi-code@latest",
-          "bin": "npm/kimi.cmd",
-          "bin_dir": "npm",
-          "args": []
+          "channel": "kimi",
+          "bin": "bin/kimi.exe",
+          "bin_dir": "bin",
+          "update_url": "https://code.kimi.com/kimi-code",
+          "env": {
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "KIMI_CODE_HOME": "{dir}/home/.kimi-code"
+          }
         }
       }
     },
@@ -234,7 +249,7 @@
     {
       "id": "dsh",
       "binary": "dsh",
-      "source": "https://deepseekdocs.com/en/docs/user-guide/cli",
+      "source": "https://github.com/deepseek-ai/deepseek-harness",
       "recipes": {
         "linux": {
           "channel": "npm",
@@ -305,76 +320,64 @@
     {
       "id": "hermes",
       "binary": "hermes",
-      "source": "https://github.com/NousResearch/hermes-agent",
+      "source": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
       "recipes": {
         "linux": {
-          "channel": "project",
+          "channel": "hermes",
           "repository": "https://github.com/NousResearch/hermes-agent.git",
-          "bin": "source/.venv/bin/hermes",
-          "bin_dir": "source/.venv/bin",
+          "bin": "source/.hermes/bin/hermes",
+          "bin_dir": "source/.hermes/bin",
           "env": {
-            "UV_PYTHON_INSTALL_DIR": "{root}/python",
-            "UV_CACHE_DIR": "{root}/cache/uv"
-          },
-          "steps": [
-            {
-              "args": [
-                "uv",
-                "sync",
-                "--frozen",
-                "--no-dev",
-                "--python",
-                "3.14"
-              ],
-              "cwd": "{dir}/source"
-            }
-          ]
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "HERMES_HOME": "{dir}/home/.hermes",
+            "HERMES_RUNTIME_DIR": "{dir}/tools",
+            "UV_PYTHON_INSTALL_DIR": "{dir}/python",
+            "UV_CACHE_DIR": "{dir}/cache/uv",
+            "UV_NO_CONFIG": "1",
+            "UV_NO_PROGRESS": "1",
+            "PYTHONUTF8": "1",
+            "NO_COLOR": "1"
+          }
         },
         "darwin": {
-          "channel": "project",
+          "channel": "hermes",
           "repository": "https://github.com/NousResearch/hermes-agent.git",
-          "bin": "source/.venv/bin/hermes",
-          "bin_dir": "source/.venv/bin",
+          "bin": "source/.hermes/bin/hermes",
+          "bin_dir": "source/.hermes/bin",
           "env": {
-            "UV_PYTHON_INSTALL_DIR": "{root}/python",
-            "UV_CACHE_DIR": "{root}/cache/uv"
-          },
-          "steps": [
-            {
-              "args": [
-                "uv",
-                "sync",
-                "--frozen",
-                "--no-dev",
-                "--python",
-                "3.14"
-              ],
-              "cwd": "{dir}/source"
-            }
-          ]
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "HERMES_HOME": "{dir}/home/.hermes",
+            "HERMES_RUNTIME_DIR": "{dir}/tools",
+            "UV_PYTHON_INSTALL_DIR": "{dir}/python",
+            "UV_CACHE_DIR": "{dir}/cache/uv",
+            "UV_NO_CONFIG": "1",
+            "UV_NO_PROGRESS": "1",
+            "PYTHONUTF8": "1",
+            "NO_COLOR": "1"
+          }
         },
         "windows": {
-          "channel": "project",
+          "channel": "hermes",
           "repository": "https://github.com/NousResearch/hermes-agent.git",
-          "bin": "source/.venv/Scripts/hermes.exe",
-          "bin_dir": "source/.venv/Scripts",
+          "bin": "source/.hermes/bin/hermes.exe",
+          "bin_dir": "source/.hermes/bin",
           "env": {
-            "UV_PYTHON_INSTALL_DIR": "{root}/python",
-            "UV_CACHE_DIR": "{root}/cache/uv"
-          },
-          "steps": [
-            {
-              "args": [
-                "uv",
-                "sync",
-                "--frozen",
-                "--no-dev",
-                "--python",
-                "3.14"
-              ],
-              "cwd": "{dir}/source"
-            }
-          ]
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "HERMES_HOME": "{dir}/home/.hermes",
+            "HERMES_RUNTIME_DIR": "{dir}/tools",
+            "UV_PYTHON_INSTALL_DIR": "{dir}/python",
+            "UV_CACHE_DIR": "{dir}/cache/uv",
+            "UV_NO_CONFIG": "1",
+            "UV_NO_PROGRESS": "1",
+            "PYTHONUTF8": "1",
+            "NO_COLOR": "1"
+          }
         }
       }
     },
@@ -427,85 +430,37 @@
       "source": "https://dev.meta.ai/lp/muse-code",
       "recipes": {
         "linux": {
-          "channel": "steps",
+          "channel": "muse",
           "bin": "bin/muse",
           "bin_dir": "bin",
+          "update_url": "https://api.meta.ai/muse-code/channels/muse-stable",
           "env": {
-            "MUSE_INSTALL_DIR": "{dir}/bin",
-            "MUSE_NO_MODIFY_PATH": "1",
-            "MUSE_LOGIN": "0",
-            "HOME": "{dir}/home",
-            "MUSE_NO_AUTO_UPDATE": "1"
-          },
-          "steps": [
-            {
-              "url": "https://dev.meta.ai/install.sh",
-              "file": "install.sh",
-              "digest": "sha256:5196d820127a241211c96cf38f0b2e30cff8506a82e9da9508cd5f826632a0ca"
-            },
-            {
-              "args": [
-                "bash",
-                "{dir}/install.sh"
-              ]
-            }
-          ]
-        },
-        "darwin": {
-          "channel": "steps",
-          "bin": "bin/muse",
-          "bin_dir": "bin",
-          "env": {
-            "MUSE_INSTALL_DIR": "{dir}/bin",
-            "MUSE_NO_MODIFY_PATH": "1",
-            "MUSE_LOGIN": "0",
-            "HOME": "{dir}/home",
-            "MUSE_NO_AUTO_UPDATE": "1"
-          },
-          "steps": [
-            {
-              "url": "https://dev.meta.ai/install.sh",
-              "file": "install.sh",
-              "digest": "sha256:5196d820127a241211c96cf38f0b2e30cff8506a82e9da9508cd5f826632a0ca"
-            },
-            {
-              "args": [
-                "bash",
-                "{dir}/install.sh"
-              ]
-            }
-          ]
-        },
-        "windows": {
-          "channel": "steps",
-          "bin": "bin/muse.cmd",
-          "bin_dir": "bin",
-          "env": {
-            "MUSE_INSTALL_DIR": "{dir}/bin",
-            "MUSE_NO_MODIFY_PATH": "1",
-            "MUSE_LOGIN": "0",
             "HOME": "{dir}/home",
             "USERPROFILE": "{dir}/home",
-            "MUSE_NO_AUTO_UPDATE": "1"
-          },
-          "steps": [
-            {
-              "url": "https://dev.meta.ai/install.ps1",
-              "file": "install.ps1",
-              "digest": "sha256:45be8be39acf500982e816a09eb55b886ef65a986895741b10498c50bbb93776"
-            },
-            {
-              "args": [
-                "powershell.exe",
-                "-NoProfile",
-                "-NonInteractive",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "{dir}/install.ps1"
-              ]
-            }
-          ]
+            "LOCALAPPDATA": "{dir}/home/local"
+          }
+        },
+        "darwin": {
+          "channel": "muse",
+          "bin": "bin/muse",
+          "bin_dir": "bin",
+          "update_url": "https://api.meta.ai/muse-code/channels/muse-stable",
+          "env": {
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local"
+          }
+        },
+        "windows": {
+          "channel": "muse",
+          "bin": "bin/muse.exe",
+          "bin_dir": "bin",
+          "update_url": "https://api.meta.ai/muse-code/channels/muse-stable",
+          "env": {
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local"
+          }
         }
       }
     },
