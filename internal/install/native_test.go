@@ -248,3 +248,36 @@ func TestNPMPackageInstallUsesOwnedWorkingDirectory(t *testing.T) {
 		t.Fatalf("installer inherited caller directory: %q", f.dir)
 	}
 }
+
+func TestMuseWindowsVerifiesExecutableSuffix(t *testing.T) {
+	data := []byte("Windows fixture")
+	h := sha256.Sum256(data)
+	sum := hex.EncodeToString(h[:])
+	var base string
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/channel":
+			fmt.Fprintf(w, `{"channel":"muse-stable","version":"1.2.3","manifest_url":%q,"urgency":"none","notification_text":""}`, base+"/release")
+		case "/release":
+			fmt.Fprintf(w, `{"version":"1.2.3","checksum_algorithm":"sha256","artifacts":{"x86_windows":{"url":%q,"checksum":%q,"size":%d}}}`, base+"/binary", sum, len(data))
+		default:
+			w.Write(data)
+		}
+	}))
+	defer s.Close()
+	base = s.URL
+	old := client
+	client = s.Client()
+	defer func() { client = old }()
+	m, f := fixture(t)
+	m.OS = "windows"
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "muse", UpdateURL: base + "/channel", Bin: "bin/tool.exe", BinDir: "bin"}
+	if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	for _, args := range f.calls {
+		if len(args) > 1 && args[1] == "--version" && !strings.HasSuffix(args[0], ".exe") {
+			t.Fatalf("Windows verification needs an executable suffix: %v", args)
+		}
+	}
+}

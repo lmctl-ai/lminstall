@@ -178,7 +178,7 @@ func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (s
 		return "", "", e
 	}
 	defer os.RemoveAll(stage)
-	candidate := filepath.Join(stage, "muse")
+	candidate := filepath.Join(stage, filepath.Base(dest))
 	if e = download(ctx, asset.URL, candidate, "sha256:"+asset.Checksum); e != nil {
 		return "", "", e
 	}
