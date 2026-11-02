@@ -307,7 +307,7 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 	case "npm":
 		a := []string{"npm", "install", "--global", "--prefix", filepath.Join(dir, "npm"), "--no-audit", "--no-fund", r.Package}
 		a = append(a, r.Args...)
-		e = run(a, "")
+		e = run(a, dir)
 	case "uv":
 		e = run([]string{"uv", "tool", "install", "--upgrade", "--force", "--python", r.Python, r.Package}, "")
 	case "project":

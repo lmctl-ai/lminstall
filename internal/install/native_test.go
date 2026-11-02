@@ -75,6 +75,17 @@ func TestNativeKimiAndMuseIntegrity(t *testing.T) {
 					if err != nil || result.State != "installed" {
 						t.Fatalf("%+v %v", result, err)
 					}
+					dest := filepath.Join(m.dir("tool"), "bin", "tool")
+					os.WriteFile(dest, []byte("last good binary"), 0755)
+					f.output = "tool 99.99.99"
+					if _, err = m.Apply(context.Background(), "upgrade", "tool"); err == nil {
+						t.Fatal("accepted wrong upgrade version")
+					}
+					kept, _ := os.ReadFile(dest)
+					if string(kept) != "last good binary" {
+						t.Fatal("failed version validation replaced working binary")
+					}
+
 				} else {
 					if err == nil || result.State == "installed" {
 						t.Fatalf("accepted %s: %+v", bad, result)
@@ -214,5 +225,26 @@ func TestHermesPrivatePathReflectsCurrentPrerequisites(t *testing.T) {
 	}
 	if _, e = os.Lstat(filepath.Join(bin, "node")); !os.IsNotExist(e) {
 		t.Error("previous PATH leaked Node into a later no-node invocation")
+	}
+}
+
+type cwdRunner struct{ dir string }
+
+func (r *cwdRunner) Run(ctx context.Context, args []string, cwd string, env map[string]string, capture bool) (string, error) {
+	if !capture {
+		r.dir = cwd
+	}
+	return "tool 1.2.3", nil
+}
+func TestNPMPackageInstallUsesOwnedWorkingDirectory(t *testing.T) {
+	m, _ := fixture(t)
+	f := &cwdRunner{}
+	m.Runner = f
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "npm", Package: "fixture@latest", Bin: "npm/bin/tool", BinDir: "npm/bin"}
+	if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
+		t.Fatal(e)
+	}
+	if f.dir != m.dir("tool") {
+		t.Fatalf("installer inherited caller directory: %q", f.dir)
 	}
 }

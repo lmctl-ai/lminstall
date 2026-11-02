@@ -80,13 +80,31 @@ func (m *Manager) kimi(ctx context.Context, p Provider, r Recipe, dir string) (s
 	if e != nil {
 		return "", "", e
 	}
-	if e = download(ctx, base+"/binaries/"+url.PathEscape(version)+"/"+url.PathEscape(asset.Filename), dest, "sha256:"+asset.Checksum); e != nil {
+	stage, e := os.MkdirTemp(dir, "kimi-stage-")
+	if e != nil {
 		return "", "", e
 	}
-	if e = os.Chmod(dest, 0755); e != nil {
+	defer os.RemoveAll(stage)
+	candidate := filepath.Join(stage, filepath.Base(dest))
+	if e = download(ctx, base+"/binaries/"+url.PathEscape(version)+"/"+url.PathEscape(asset.Filename), candidate, "sha256:"+asset.Checksum); e != nil {
 		return "", "", e
 	}
-	if e = m.verifySelectedVersion(ctx, p, r, bin, version); e != nil {
+	if e = os.Chmod(candidate, 0755); e != nil {
+		return "", "", e
+	}
+	relativeCandidate, e := filepath.Rel(dir, candidate)
+	if e != nil {
+		return "", "", e
+	}
+	if e = m.verifySelectedVersion(ctx, p, r, relativeCandidate, version); e != nil {
+		return "", "", e
+	}
+	if _, err := os.Stat(dest); err == nil {
+		if e = copyExecutable(dest, dest+".bak"); e != nil {
+			return "", "", e
+		}
+	}
+	if e = os.Rename(candidate, dest); e != nil {
 		return "", "", e
 	}
 	region := filepath.Join(dir, "home", ".kimi-code", "region")
@@ -174,10 +192,14 @@ func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (s
 	if e = os.Chmod(candidate, 0755); e != nil {
 		return "", "", e
 	}
-	if e = os.Rename(candidate, dest); e != nil {
+	relativeCandidate, e := filepath.Rel(dir, candidate)
+	if e != nil {
 		return "", "", e
 	}
-	if e = m.verifySelectedVersion(ctx, p, r, bin, channel.Version); e != nil {
+	if e = m.verifySelectedVersion(ctx, p, r, relativeCandidate, channel.Version); e != nil {
+		return "", "", e
+	}
+	if e = os.Rename(candidate, dest); e != nil {
 		return "", "", e
 	}
 	return bin, m.expand(r.BinDir, dir), nil

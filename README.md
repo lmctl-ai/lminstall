@@ -146,7 +146,8 @@ workflow and test changes still run the complete live matrix.
 
 ## Manifest and development
 
-Adding a provider is data: id, binary, official source link and per-OS recipe.
+Npm/release entries are data: id, binary, official source link and per-OS recipe.
+A new native installer protocol needs Go implementation and regression tests.
 Channels include npm, Git projects, checksum update manifests, GitHub release
 archives and Go-native Kimi/Muse/Hermes installers. Recipes contain argv arrays, owned paths and environment values;
 root paths never interpolate into shell code. Use `--manifest FILE` to explicitly

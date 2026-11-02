@@ -3,8 +3,9 @@
 import pathlib,shutil,subprocess,tempfile
 root=pathlib.Path(__file__).resolve().parents[1]
 cases=[
+ ('npm working directory','internal/install/manager.go','e = run(a, dir)','e = run(a, "")'),
  ('DSH vendor source','internal/install/providers.json','https://github.com/deepseek-ai/deepseek-harness','https://deepseekdocs.com/en/docs/user-guide/cli'),
- ('Hermes PATH refresh','internal/install/hermes.go','if e := os.RemoveAll(bin); e != nil {','if false {'),
+ ('Hermes PATH refresh','internal/install/hermes.go','if e := os.RemoveAll(bin); e != nil {','if e := error(nil); e != nil {'),
  ('catalog replacement','cmd/lminstall/main.go','manifest = install.Manifest{}','// deliberately retain embedded catalog'),
  ('missing release digest','internal/install/archive.go','if digest == "" {\n\t\tif r.Checksums == "" {','if false {\n\t\tif r.Checksums == "" {'),
  ('redirect downgrade','internal/install/archive.go','if next.URL.Scheme != "https" {','if false {'),
