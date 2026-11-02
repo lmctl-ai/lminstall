@@ -9,8 +9,10 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Native source builds outlast unrelated configure/run commits. Retain the
+  # exact-commit proof instead of repeatedly cancelling its slow platforms.
+  group: ci-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
 jobs:
   providers:
     name: providers-${{ matrix.name }}
