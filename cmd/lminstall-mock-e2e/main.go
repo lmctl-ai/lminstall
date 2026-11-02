@@ -20,7 +20,7 @@ import (
 const expected = "LMINSTALL_CONFIGURE_OK_138"
 const prompt = "Reply with exactly " + expected + ". Do not call any tools."
 
-type settings struct{ Binary, Program string }
+type settings struct{ Binary, Version string }
 
 func main() {
 	if e := run(); e != nil {
@@ -34,12 +34,14 @@ func run() error {
 	settingsPath := flag.String("settings", "", "released fixture settings")
 	out := flag.String("out", "artifacts", "evidence")
 	prepareDir := flag.String("prepare", "", "download released fixture into absolute directory")
-	compiler := flag.String("compiler", "", "private compiler JavaScript entry")
+	lmmockVersion := flag.String("lmmock-version", "latest", "released lmmock tag (vN.N.N) or latest")
+	inspect := flag.String("inspect", "", "lminspect executable: record real client traffic in front of the mock")
+	strict := flag.Bool("strict-coverage", false, "fail when the client makes a request the mock does not serve")
 	requireAction := flag.Bool("require-action-profile", false, "validate and reuse the configure Action profile")
 	child := flag.Bool("child", false, "mock child")
 	flag.Parse()
 	if *prepareDir != "" {
-		return prepare(*prepareDir, *compiler)
+		return prepare(*prepareDir, *lmmockVersion)
 	}
 	root, e := filepath.Abs(*out)
 	if e != nil {
@@ -58,19 +60,25 @@ func run() error {
 			return e
 		}
 		config := filepath.Join(root, "mock-config.json")
-		b, _ = json.Marshal(map[string]string{"text": expected})
+		// toolCalls=false: coding CLIs always declare tools; the oracle needs a plain reply.
+		b, _ = json.Marshal(map[string]any{"text": expected, "toolCalls": false})
 		os.WriteFile(config, b, 0600)
 		exe, _ := os.Executable()
-		args := []string{"exec", "--lmcode", s.Program, "--config", config, "--audit-log", filepath.Join(root, "audit.jsonl"), "--", exe, "--child", "--provider", *provider, "--lminstall", *tool, "--out", root}
+		args := []string{"exec", "--builtin", "llm-api", "--config", config, "--audit-log", filepath.Join(root, "audit.jsonl"), "--", exe, "--child", "--provider", *provider, "--lminstall", *tool, "--out", root}
 		if *requireAction {
 			args = append(args, "--require-action-profile")
+		}
+		if *inspect != "" {
+			args = append(args, "--inspect", *inspect)
 		}
 		cmd := exec.Command(s.Binary, args...)
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		runErr := cmd.Run()
 		auditPath := filepath.Join(root, "audit.jsonl")
 		b, e = os.ReadFile(auditPath)
+		var gaps []gap
 		if e == nil {
+			gaps = coverageGaps(b)
 			clean, err := auditEvidence(b)
 			if err != nil {
 				os.Remove(auditPath)
@@ -98,12 +106,30 @@ func run() error {
 		if posts == 0 {
 			return errors.New("no_successful_real_POST")
 		}
-		fmt.Printf("{\"provider\":%q,\"audit_posts\":%d}\n", *provider, posts)
+		fmt.Printf("{\"provider\":%q,\"audit_posts\":%d,\"unserved_requests\":%d}\n", *provider, posts, len(gaps))
+		if len(gaps) > 0 {
+			gb, _ := json.MarshalIndent(gaps, "", "  ")
+			os.WriteFile(filepath.Join(root, "coverage-gaps.json"), gb, 0600)
+			for _, g := range gaps {
+				fmt.Printf("::warning title=lmmock has no route for %s::%s %s -> %d (%s)\n", *provider, g.Method, g.Path, g.Status, g.Kind)
+			}
+			if *strict {
+				return errors.New("client_requested_unmocked_routes")
+			}
+		}
 		return nil
 	}
 	base := os.Getenv("LMMOCK_URL")
 	if !strings.HasPrefix(base, "http://127.0.0.1:") {
 		return errors.New("loopback_fixture_required")
+	}
+	if *inspect != "" {
+		stop, proxied, e := startInspector(*inspect, base, filepath.Join(root, "flows.jsonl"))
+		if e != nil {
+			return e
+		}
+		defer stop()
+		base = proxied
 	}
 	model := "mock-agent"
 	if *provider == "gemini" {
@@ -157,7 +183,7 @@ func run() error {
 	if oracle(reply, "DELIBERATELY_WRONG_138") == nil {
 		return errors.New("wrong_expectation_control_survived")
 	}
-	response, e := http.Get(base + "/__inspect")
+	response, e := http.Get(os.Getenv("LMMOCK_URL") + "/__inspect")
 	if e != nil {
 		return e
 	}

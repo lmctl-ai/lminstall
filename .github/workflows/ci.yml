@@ -1,11 +1,10 @@
 name: ci
 on:
-  push:
-    branches: [main]
-    # Documentation cannot change the installed artifacts; avoid repeating 70 network lifecycles.
-    paths-ignore: ['**/*.md', 'LICENSE']
+  # Pushes to main run through release.yml, which calls this workflow and only
+  # publishes binaries when it passes.
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -47,7 +46,7 @@ jobs:
           go vet ./...
           mkdir -p build
           go build -trimpath -ldflags='-s -w' -o build/lminstall.exe ./cmd/lminstall
-      - name: Install, repeat, status, upgrade and uninstall the catalog
+      - name: Install, repeat, status, upgrade and uninstall the catalog (hermetic PATH, no npm/git/uv)
         run: python scripts/ci-providers.py build/lminstall.exe
       - name: Preserve provider results
         if: always()
@@ -69,7 +68,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: lmctl-ai/lminstall@main
+      - uses: ./
         id: setup
         with:
           providers: codex

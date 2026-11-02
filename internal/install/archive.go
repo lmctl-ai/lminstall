@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"context"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/tls"
@@ -74,6 +75,8 @@ func download(ctx context.Context, url, dest, digest string) error {
 	var hash hash.Hash = sha256.New()
 	if strings.HasPrefix(digest, "sha512:") {
 		hash = sha512.New()
+	} else if strings.HasPrefix(digest, "sha1:") {
+		hash = sha1.New()
 	}
 	_, copyErr := io.Copy(io.MultiWriter(f, hash), resp.Body)
 	closeErr := f.Close()
@@ -84,7 +87,7 @@ func download(ctx context.Context, url, dest, digest string) error {
 		return closeErr
 	}
 	if digest != "" {
-		want := strings.TrimPrefix(strings.TrimPrefix(digest, "sha256:"), "sha512:")
+		want := strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(digest, "sha256:"), "sha512:"), "sha1:")
 		if len(want) != len(hash.Sum(nil))*2 || !strings.EqualFold(want, hex.EncodeToString(hash.Sum(nil))) {
 			return fmt.Errorf("checksum mismatch for %s", url)
 		}
@@ -265,7 +268,7 @@ func (m *Manager) publicRelease(ctx context.Context, r Recipe, dir string) (rele
 	if info.Tag == "" {
 		return info, fmt.Errorf("empty release tag")
 	}
-	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", strings.TrimPrefix(info.Tag, "v")), dir)
+	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", tagVersion(r, info.Tag)), dir)
 	base := "https://github.com/" + r.Repository + "/releases/download/" + url.PathEscape(info.Tag) + "/"
 	req, e = http.NewRequestWithContext(ctx, "GET", base+url.PathEscape(r.Checksums), nil)
 	if e != nil {
@@ -343,6 +346,11 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 		return "", "", "", e
 	}
 	req.Header.Set("User-Agent", "lminstall")
+	// Like the vendors' own scripts, an ambient GitHub token only raises the API
+	// quota. It is sent to api.github.com alone, never to asset downloads.
+	if token := firstEnv("GITHUB_TOKEN", "GH_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	resp, e := secureDo(req)
 	if e != nil {
 		return "", "", "", e
@@ -362,7 +370,7 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 			return "", "", "", e
 		}
 	}
-	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", strings.TrimPrefix(release.Tag, "v")), dir)
+	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", tagVersion(r, release.Tag)), dir)
 	url, digest := "", ""
 	for _, a := range release.Assets {
 		if a.Name == name {
@@ -399,7 +407,10 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 	}
 	os.Remove(archive)
 	binary := p.Binary
-	if m.OS == "windows" {
+	if r.ArchiveBinary != "" {
+		binary = m.expand(r.ArchiveBinary, dir)
+	}
+	if m.OS == "windows" && !strings.Contains(binary, ".") {
 		binary += ".exe"
 	}
 	var matches []string
@@ -427,7 +438,7 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 	if e != nil {
 		return "", "", "", e
 	}
-	verified, e := m.verifiedVersion(ctx, p, r, rel, release.Tag)
+	verified, e := m.verifiedVersion(ctx, p, r, rel, tagVersion(r, release.Tag))
 	if e != nil {
 		return "", "", "", e
 	}
@@ -454,4 +465,17 @@ func downloadAvailabilityError(err error) bool {
 	var dns *net.DNSError
 	var op *net.OpError
 	return errors.As(err, &dns) || errors.As(err, &op) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+}
+
+func tagVersion(r Recipe, tag string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(tag, r.TagPrefix), "v")
+}
+
+func firstEnv(names ...string) string {
+	for _, n := range names {
+		if v := os.Getenv(n); v != "" {
+			return v
+		}
+	}
+	return ""
 }

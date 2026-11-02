@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -54,7 +55,8 @@ func (m *Manager) expand(s, dir string) string {
 		ext = ".exe"
 		archive = ".zip"
 	}
-	return strings.NewReplacer("{root}", m.Root, "{dir}", dir, "{os}", m.OS, "{arch}", m.Arch, "{assetarch}", assetarch, "{exe}", ext, "{archive}", archive).Replace(s)
+	triple := map[string]string{"linux-amd64": "x86_64-unknown-linux-musl", "linux-arm64": "aarch64-unknown-linux-musl", "darwin-amd64": "x86_64-apple-darwin", "darwin-arm64": "aarch64-apple-darwin", "windows-amd64": "x86_64-pc-windows-msvc", "windows-arm64": "aarch64-pc-windows-msvc"}[m.OS+"-"+m.Arch]
+	return strings.NewReplacer("{triple}", triple, "{root}", m.Root, "{dir}", dir, "{os}", m.OS, "{arch}", m.Arch, "{assetarch}", assetarch, "{exe}", ext, "{archive}", archive).Replace(s)
 }
 func relative(dir, name string) (string, error) {
 	name = filepath.FromSlash(name)
@@ -101,7 +103,14 @@ func (m *Manager) verify(ctx context.Context, p Provider, r Recipe, bin string) 
 	if e != nil {
 		return "", e
 	}
-	out, e := m.Runner.Run(ctx, []string{path, "--version"}, "", m.env(r, m.dir(p.ID)), true)
+	argv := []string{path, "--version"}
+	if runtime.GOOS == "windows" && m.OS == "windows" && r.Channel == "npm" && strings.EqualFold(filepath.Ext(path), ".cmd") && p.LaunchConfig.NPMPackage != "" {
+		// Run the package entry directly rather than through a batch interpreter.
+		if direct, err := ResolveNPMEntry(path, p.Binary, p.LaunchConfig.NPMPackage, []string{"--version"}); err == nil {
+			argv = direct
+		}
+	}
+	out, e := m.Runner.Run(ctx, argv, "", m.env(r, m.dir(p.ID)), true)
 	if e != nil {
 		return "", fmt.Errorf("%s --version failed: %w", p.ID, e)
 	}
@@ -172,7 +181,7 @@ func (m *Manager) Status(ctx context.Context, id string) (Result, error) {
 		res.Reason = "installation has not passed --version; run lminstall install " + id
 		return res, nil
 	}
-	if (r.Channel == "kimi" || r.Channel == "muse" || r.Channel == "hermes") && rec.Channel != r.Channel {
+	if (r.Channel == "kimi" || r.Channel == "muse" || r.Channel == "hermes" || r.Channel == "claude") && rec.Channel != r.Channel {
 		res.State = "incomplete"
 		res.Reason = "installation method changed; run lminstall install " + id + " to use the official native method"
 		return res, nil
@@ -183,7 +192,7 @@ func (m *Manager) Status(ctx context.Context, id string) (Result, error) {
 		res.Reason = e.Error()
 		return res, nil
 	}
-	if r.Channel == "release" || r.Channel == "hermes" {
+	if usesLauncher(r.Channel) {
 		if e = m.checkLauncher(p, rec.Bin); e != nil {
 			res.State = "broken"
 			res.Reason = e.Error()
@@ -292,7 +301,7 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 			return res, e
 		}
 	}
-	if r.Channel == "release" || r.Channel == "hermes" {
+	if usesLauncher(r.Channel) {
 		if e = m.publishLauncher(p, bin); e != nil {
 			return res, e
 		}
@@ -307,6 +316,9 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 	res.Binary, _ = relative(dir, bin)
 	res.BinDir, _ = relative(dir, bindir)
 	return res, nil
+}
+func usesLauncher(channel string) bool {
+	return channel == "release" || channel == "hermes" || channel == "claude"
 }
 func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string) (string, string, string, error) {
 	run := func(args []string, cwd string) error {
@@ -340,9 +352,7 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 	case "hermes":
 		return m.hermes(ctx, p, r, dir)
 	case "npm":
-		a := []string{"npm", "install", "--global", "--prefix", filepath.Join(dir, "npm"), "--no-audit", "--no-fund", r.Package}
-		a = append(a, r.Args...)
-		e = run(a, dir)
+		return m.npm(ctx, p, r, dir)
 	case "uv":
 		e = run([]string{"uv", "tool", "install", "--upgrade", "--force", "--python", r.Python, r.Package}, "")
 	case "project":
@@ -364,6 +374,8 @@ func (m *Manager) install(ctx context.Context, p Provider, r Recipe, dir string)
 		return m.updateManifest(ctx, p, r, dir)
 	case "release":
 		return m.release(ctx, p, r, dir)
+	case "claude":
+		return m.claude(ctx, p, r, dir)
 	case "steps":
 		e = steps()
 	default:

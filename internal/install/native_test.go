@@ -116,11 +116,6 @@ type hermesRunner struct {
 
 func (f *hermesRunner) Run(ctx context.Context, args []string, cwd string, env map[string]string, capture bool) (string, error) {
 	f.calls = append(f.calls, append([]string{}, args...))
-	if len(args) > 1 && args[1] == "clone" {
-		source := args[len(args)-1]
-		os.MkdirAll(filepath.Join(source, "pm"), 0700)
-		os.WriteFile(filepath.Join(source, "pm", "lock.json"), f.lock, 0600)
-	}
 	if len(args) > 2 && args[1] == "python" && args[2] == "find" {
 		return f.python, nil
 	}
@@ -142,9 +137,12 @@ func TestHermesBootstrapsVerifiedUVAndOfficialPM(t *testing.T) {
 				sum = strings.Repeat("0", 64)
 			}
 			var base string
+			var lockBytes []byte
 			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if strings.Contains(r.URL.Path, "releases/latest") {
 					fmt.Fprint(w, `{"tag_name":"v1.2.3"}`)
+				} else if strings.Contains(r.URL.Path, "/tar.gz/refs/tags/") {
+					w.Write(sourceTarball(t, lockBytes))
 				} else {
 					w.Write(data)
 				}
@@ -163,6 +161,7 @@ func TestHermesBootstrapsVerifiedUVAndOfficialPM(t *testing.T) {
 			})
 			defer func() { client = old }()
 			lock, _ := json.Marshal(map[string]any{"packages": map[string]any{"other": map[string]any{"artifacts": map[string]any{"linux-x64": []string{"multiple artifacts"}}}, "uv": map[string]any{"version": "0.13.5", "artifacts": map[string]any{"linux-x64": map[string]string{"url": base + "/uv.zip", "sha256": sum}}}, "python": map[string]any{"version": "3.14.3+build"}}})
+			lockBytes = lock
 			m, _ := fixture(t)
 			f := &hermesRunner{t: t, lock: lock, python: filepath.Join(m.Root, "python", "python")}
 			m.Runner = f
@@ -173,7 +172,7 @@ func TestHermesBootstrapsVerifiedUVAndOfficialPM(t *testing.T) {
 				if e == nil {
 					t.Fatal("accepted unverified uv")
 				}
-				if len(f.calls) != 1 {
+				if len(f.calls) != 0 {
 					t.Fatalf("bootstrap executed before hash: %v", f.calls)
 				}
 				return
@@ -185,7 +184,7 @@ func TestHermesBootstrapsVerifiedUVAndOfficialPM(t *testing.T) {
 			for _, a := range f.calls {
 				joined += strings.Join(a, " ") + "\n"
 			}
-			for _, want := range []string{"--branch v1.2.3", "uv --version", "python install --no-bin --no-registry 3.14", "python find --managed-python 3.14", "-m pm.cli install", "source_completion.py --source"} {
+			for _, want := range []string{"uv --version", "python install --no-bin --no-registry 3.14", "python find --managed-python 3.14", "-m pm.cli install", "source_completion.py --source"} {
 				if !strings.Contains(joined, want) {
 					t.Errorf("missing %s in %s", want, joined)
 				}
@@ -228,27 +227,6 @@ func TestHermesPrivatePathReflectsCurrentPrerequisites(t *testing.T) {
 	}
 	if _, e = os.Lstat(filepath.Join(bin, "node")); !os.IsNotExist(e) {
 		t.Error("previous PATH leaked Node into a later no-node invocation")
-	}
-}
-
-type cwdRunner struct{ dir string }
-
-func (r *cwdRunner) Run(ctx context.Context, args []string, cwd string, env map[string]string, capture bool) (string, error) {
-	if !capture {
-		r.dir = cwd
-	}
-	return "tool 1.2.3", nil
-}
-func TestNPMPackageInstallUsesOwnedWorkingDirectory(t *testing.T) {
-	m, _ := fixture(t)
-	f := &cwdRunner{}
-	m.Runner = f
-	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "npm", Package: "fixture@latest", Bin: "npm/bin/tool", BinDir: "npm/bin"}
-	if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
-		t.Fatal(e)
-	}
-	if f.dir != m.dir("tool") {
-		t.Fatalf("installer inherited caller directory: %q", f.dir)
 	}
 }
 

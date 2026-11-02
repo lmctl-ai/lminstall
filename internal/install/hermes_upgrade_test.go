@@ -1,7 +1,9 @@
 package install
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -22,18 +24,6 @@ type hermesUpgradeRunner struct {
 }
 
 func (f *hermesUpgradeRunner) Run(_ context.Context, args []string, cwd string, _ map[string]string, _ bool) (string, error) {
-	if len(args) > 1 && args[1] == "clone" {
-		source := args[len(args)-1]
-		if err := os.MkdirAll(filepath.Join(source, "pm"), 0700); err != nil {
-			return "", err
-		}
-		if err := os.MkdirAll(filepath.Join(source, ".git"), 0700); err != nil {
-			return "", err
-		}
-		if err := os.WriteFile(filepath.Join(source, "pm/lock.json"), f.lock, 0600); err != nil {
-			return "", err
-		}
-	}
 	if len(args) > 2 && args[1] == "python" && args[2] == "find" {
 		return filepath.Join(cwd, "bootstrap-python"), nil
 	}
@@ -65,10 +55,13 @@ func TestHermesRejectedBuildKeepsWorkingCheckoutAndReceipt(t *testing.T) {
 	payload := zipBytes(t, "uv", []byte("private uv"))
 	hash := sha256.Sum256(payload)
 	var base string
+	var lockBytes []byte
 	version := "1.2.3"
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "releases/latest") {
 			fmt.Fprintf(w, `{"tag_name":%q}`, "v"+version)
+		} else if strings.Contains(r.URL.Path, "/tar.gz/refs/tags/") {
+			w.Write(sourceTarball(t, lockBytes))
 		} else {
 			w.Write(payload)
 		}
@@ -87,10 +80,11 @@ func TestHermesRejectedBuildKeepsWorkingCheckoutAndReceipt(t *testing.T) {
 	})
 	defer func() { client = old }()
 	lock, _ := json.Marshal(map[string]any{"packages": map[string]any{"uv": map[string]any{"version": "0.13.5", "artifacts": map[string]any{"linux-x64": map[string]string{"url": base + "/uv.zip", "sha256": hex.EncodeToString(hash[:])}}}, "python": map[string]string{"version": "3.14.3"}}})
+	lockBytes = lock
 	m, _ := fixture(t)
 	runner := &hermesUpgradeRunner{lock: lock, version: version}
 	m.Runner = runner
-	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "hermes", Repository: "https://fixture.invalid/hermes", Bin: "source/.hermes/bin/hermes", BinDir: "source/.hermes/bin", Env: map[string]string{"HERMES_HOME": "{dir}/home/.hermes"}}
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "hermes", Repository: "https://github.com/fixture/hermes-agent.git", Bin: "source/.hermes/bin/hermes", BinDir: "source/.hermes/bin", Env: map[string]string{"HERMES_HOME": "{dir}/home/.hermes"}}
 	first, err := m.Apply(context.Background(), "install", "tool")
 	if err != nil {
 		t.Fatal(err)
@@ -121,4 +115,24 @@ func TestHermesRejectedBuildKeepsWorkingCheckoutAndReceipt(t *testing.T) {
 	if err != nil || next.Version != "tool 2.0.0" || next.BinDir != first.BinDir {
 		t.Fatalf("valid Hermes build not published to stable PATH: %+v %v", next, err)
 	}
+}
+
+// sourceTarball builds a GitHub-style source tarball (single top-level directory).
+func sourceTarball(t *testing.T, lock []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for _, f := range []struct {
+		name string
+		data []byte
+	}{{"hermes-agent-1.2.3/pm/lock.json", lock}, {"hermes-agent-1.2.3/cli-config.yaml.example", []byte("x: 1\n")}} {
+		if err := tw.WriteHeader(&tar.Header{Name: f.name, Mode: 0644, Size: int64(len(f.data)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatal(err)
+		}
+		tw.Write(f.data)
+	}
+	tw.Close()
+	gz.Close()
+	return buf.Bytes()
 }

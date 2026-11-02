@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -23,18 +24,6 @@ type pinnedTool struct {
 
 func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) (string, string, string, error) {
 	env := m.env(r, dir)
-	git := "git"
-	if _, e := prerequisite(git); e != nil {
-		if m.OS != "windows" {
-			return "", "", "", fmt.Errorf("Hermes requires Git; install Git with your system package manager (macOS: Xcode Command Line Tools); lminstall never uses sudo")
-		}
-		var err error
-		git, err = m.hermesGit(ctx, dir, env)
-		if err != nil {
-			return "", "", "", err
-		}
-		env["PATH"] = filepath.Dir(git) + string(os.PathListSeparator) + os.Getenv("PATH")
-	}
 	if env["PATH"] == "" {
 		env["PATH"] = os.Getenv("PATH")
 	}
@@ -63,7 +52,8 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 			os.RemoveAll(source)
 		}
 	}()
-	if _, e = run([]string{git, "clone", "--depth", "1", "--branch", tag, r.Repository, source}, "", false); e != nil {
+	// Fetch the tagged source as GitHub's tarball; no git client is started.
+	if e = fetchGitHubTag(ctx, r.Repository, tag, source); e != nil {
 		return "", "", "", e
 	}
 	lockBytes, e := os.ReadFile(filepath.Join(source, "pm", "lock.json"))
@@ -303,23 +293,23 @@ func withoutSystemInstallers(dir, path string) (string, error) {
 	return bin, nil
 }
 
-// The official Windows installer bootstraps this verified portable Git when absent.
-// This is a native self-extracting archive, not a PowerShell installer.
-func (m *Manager) hermesGit(ctx context.Context, dir string, env map[string]string) (string, error) {
-	arch, sha := "64-bit", "b365da794b1d2225eb24d5f5e09ef7792cfd5fa26c3a3586210280c80dff3a2a"
-	if m.Arch == "arm64" {
-		arch = "arm64"
-		sha = "0db54010054c01f35501cf69e1e32d3710138ecb934d188bd77093afed24300e"
+var githubRepoURL = regexp.MustCompile(`^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?$`)
+
+// fetchGitHubTag extracts https://github.com/<owner>/<repo> at tag into dest.
+func fetchGitHubTag(ctx context.Context, repository, tag, dest string) error {
+	m := githubRepoURL.FindStringSubmatch(repository)
+	if m == nil {
+		return fmt.Errorf("unsupported source repository %q", repository)
 	}
-	name := "PortableGit-2.53.0.3-" + arch + ".7z.exe"
-	archive := filepath.Join(dir, name)
-	if e := downloadMirrored(ctx, "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.3/"+name, "https://hermes-assets.nousresearch.com/upstream/sha256/"+sha, archive, "sha256:"+sha); e != nil {
-		return "", e
+	f, e := os.CreateTemp(filepath.Dir(dest), ".source-")
+	if e != nil {
+		return e
 	}
-	defer os.Remove(archive)
-	target := filepath.Join(dir, "portable-git")
-	if _, e := m.Runner.Run(ctx, []string{archive, "-y", "-o" + target}, "", env, false); e != nil {
-		return "", e
+	name := f.Name()
+	f.Close()
+	defer os.Remove(name)
+	if e = download(ctx, "https://codeload.github.com/"+m[1]+"/"+m[2]+"/tar.gz/refs/tags/"+url.PathEscape(tag), name, ""); e != nil {
+		return e
 	}
-	return filepath.Join(target, "cmd", "git.exe"), nil
+	return extractNPMTarball(name, dest)
 }

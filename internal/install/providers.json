@@ -7,25 +7,22 @@
       "source": "https://code.claude.com/docs/en/setup",
       "recipes": {
         "linux": {
-          "channel": "npm",
-          "package": "@anthropic-ai/claude-code@latest",
-          "bin": "npm/bin/claude",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "claude",
+          "bin": "",
+          "bin_dir": "bin",
+          "update_url": "https://downloads.claude.ai/claude-code-releases"
         },
         "darwin": {
-          "channel": "npm",
-          "package": "@anthropic-ai/claude-code@latest",
-          "bin": "npm/bin/claude",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "claude",
+          "bin": "",
+          "bin_dir": "bin",
+          "update_url": "https://downloads.claude.ai/claude-code-releases"
         },
         "windows": {
-          "channel": "npm",
-          "package": "@anthropic-ai/claude-code@latest",
-          "bin": "npm/claude.cmd",
-          "bin_dir": "npm",
-          "args": []
+          "channel": "claude",
+          "bin": "",
+          "bin_dir": "bin",
+          "update_url": "https://downloads.claude.ai/claude-code-releases"
         }
       },
       "launch_config": {
@@ -137,25 +134,31 @@
       "source": "https://github.com/openai/codex",
       "recipes": {
         "linux": {
-          "channel": "npm",
-          "package": "@openai/codex@latest",
-          "bin": "npm/bin/codex",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "openai/codex",
+          "tag_prefix": "rust-v",
+          "asset": "codex-{triple}.tar.gz",
+          "archive_binary": "codex-{triple}",
+          "bin": "",
+          "bin_dir": ""
         },
         "darwin": {
-          "channel": "npm",
-          "package": "@openai/codex@latest",
-          "bin": "npm/bin/codex",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "openai/codex",
+          "tag_prefix": "rust-v",
+          "asset": "codex-{triple}.tar.gz",
+          "archive_binary": "codex-{triple}",
+          "bin": "",
+          "bin_dir": ""
         },
         "windows": {
-          "channel": "npm",
-          "package": "@openai/codex@latest",
-          "bin": "npm/codex.cmd",
-          "bin_dir": "npm",
-          "args": []
+          "channel": "release",
+          "repository": "openai/codex",
+          "tag_prefix": "rust-v",
+          "asset": "codex-{triple}.exe.zip",
+          "archive_binary": "codex-{triple}.exe",
+          "bin": "",
+          "bin_dir": ""
         }
       },
       "launch_config": {
@@ -294,25 +297,28 @@
       "source": "https://docs.github.com/en/copilot/how-tos/copilot-cli/install-copilot-cli",
       "recipes": {
         "linux": {
-          "channel": "npm",
-          "package": "@github/copilot@latest",
-          "bin": "npm/bin/copilot",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "github/copilot-cli",
+          "asset": "copilot-linux-{assetarch}.tar.gz",
+          "checksums": "SHA256SUMS.txt",
+          "bin": "",
+          "bin_dir": ""
         },
         "darwin": {
-          "channel": "npm",
-          "package": "@github/copilot@latest",
-          "bin": "npm/bin/copilot",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "github/copilot-cli",
+          "asset": "copilot-darwin-{assetarch}.tar.gz",
+          "checksums": "SHA256SUMS.txt",
+          "bin": "",
+          "bin_dir": ""
         },
         "windows": {
-          "channel": "npm",
-          "package": "@github/copilot@latest",
-          "bin": "npm/copilot.cmd",
-          "bin_dir": "npm",
-          "args": []
+          "channel": "release",
+          "repository": "github/copilot-cli",
+          "asset": "copilot-win32-{assetarch}.zip",
+          "checksums": "SHA256SUMS.txt",
+          "bin": "",
+          "bin_dir": ""
         }
       },
       "launch_config": {
@@ -364,25 +370,25 @@
       "source": "https://opencode.ai/docs/",
       "recipes": {
         "linux": {
-          "channel": "npm",
-          "package": "opencode-ai@latest",
-          "bin": "npm/bin/opencode",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "anomalyco/opencode",
+          "asset": "opencode-linux-{assetarch}.tar.gz",
+          "bin": "",
+          "bin_dir": ""
         },
         "darwin": {
-          "channel": "npm",
-          "package": "opencode-ai@latest",
-          "bin": "npm/bin/opencode",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "anomalyco/opencode",
+          "asset": "opencode-darwin-{assetarch}.zip",
+          "bin": "",
+          "bin_dir": ""
         },
         "windows": {
-          "channel": "npm",
-          "package": "opencode-ai@latest",
-          "bin": "npm/opencode.cmd",
-          "bin_dir": "npm",
-          "args": []
+          "channel": "release",
+          "repository": "anomalyco/opencode",
+          "asset": "opencode-windows-{assetarch}.zip",
+          "bin": "",
+          "bin_dir": ""
         }
       },
       "launch_config": {
@@ -535,25 +541,33 @@
       "source": "https://github.com/QwenLM/qwen-code",
       "recipes": {
         "linux": {
-          "channel": "npm",
-          "package": "@qwen-code/qwen-code@latest",
-          "bin": "npm/bin/qwen",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "QwenLM/qwen-code",
+          "asset": "qwen-code-linux-{assetarch}.tar.gz",
+          "archive_binary": "qwen",
+          "checksums": "SHA256SUMS",
+          "bin": "",
+          "bin_dir": "",
+          "launcher": "exec"
         },
         "darwin": {
-          "channel": "npm",
-          "package": "@qwen-code/qwen-code@latest",
-          "bin": "npm/bin/qwen",
-          "bin_dir": "npm/bin",
-          "args": []
+          "channel": "release",
+          "repository": "QwenLM/qwen-code",
+          "asset": "qwen-code-darwin-{assetarch}.tar.gz",
+          "archive_binary": "qwen",
+          "checksums": "SHA256SUMS",
+          "bin": "",
+          "bin_dir": "",
+          "launcher": "exec"
         },
         "windows": {
-          "channel": "npm",
-          "package": "@qwen-code/qwen-code@latest",
-          "bin": "npm/qwen.cmd",
-          "bin_dir": "npm",
-          "args": []
+          "channel": "release",
+          "repository": "QwenLM/qwen-code",
+          "asset": "qwen-code-win-{assetarch}.zip",
+          "archive_binary": "qwen.cmd",
+          "checksums": "SHA256SUMS",
+          "bin": "",
+          "bin_dir": ""
         }
       },
       "launch_config": {
@@ -621,27 +635,21 @@
           "package": "@earendil-works/pi-coding-agent@latest",
           "bin": "npm/bin/pi",
           "bin_dir": "npm/bin",
-          "args": [
-            "--ignore-scripts"
-          ]
+          "args": []
         },
         "darwin": {
           "channel": "npm",
           "package": "@earendil-works/pi-coding-agent@latest",
           "bin": "npm/bin/pi",
           "bin_dir": "npm/bin",
-          "args": [
-            "--ignore-scripts"
-          ]
+          "args": []
         },
         "windows": {
           "channel": "npm",
           "package": "@earendil-works/pi-coding-agent@latest",
           "bin": "npm/pi.cmd",
           "bin_dir": "npm",
-          "args": [
-            "--ignore-scripts"
-          ]
+          "args": []
         }
       },
       "launch_config": {

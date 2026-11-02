@@ -10,7 +10,7 @@ func TestOfficialCatalogMethods(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	expected := map[string]string{"claude": "npm", "codex": "npm", "gemini": "npm", "copilot": "npm", "opencode": "npm", "kimi": "kimi", "qwen": "npm", "pi": "npm", "dsh": "npm", "miniplayer": "npm", "lmplayer": "release", "hermes": "hermes", "agy": "update-manifest", "muse": "muse"}
+	expected := map[string]string{"claude": "claude", "codex": "release", "gemini": "npm", "copilot": "release", "opencode": "release", "kimi": "kimi", "qwen": "release", "pi": "npm", "dsh": "npm", "miniplayer": "npm", "lmplayer": "release", "hermes": "hermes", "agy": "update-manifest", "muse": "muse"}
 	for id, channel := range expected {
 		t.Run(id, func(t *testing.T) {
 			p, e := m.Provider(id)
@@ -35,7 +35,7 @@ func TestOfficialCatalogMethods(t *testing.T) {
 			}
 		})
 	}
-	packages := map[string]string{"claude": "@anthropic-ai/claude-code@latest", "codex": "@openai/codex@latest", "gemini": "@google/gemini-cli@latest", "copilot": "@github/copilot@latest", "opencode": "opencode-ai@latest", "qwen": "@qwen-code/qwen-code@latest", "pi": "@earendil-works/pi-coding-agent@latest", "dsh": "@deepseek-ai/dsh@latest"}
+	packages := map[string]string{"gemini": "@google/gemini-cli@latest", "pi": "@earendil-works/pi-coding-agent@latest", "dsh": "@deepseek-ai/dsh@latest"}
 	for id, pkg := range packages {
 		p, _ := m.Provider(id)
 		for _, os := range []string{"linux", "darwin", "windows"} {

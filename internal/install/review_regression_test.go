@@ -128,24 +128,6 @@ func TestWP137AgyRejectedUpgradePreservesOld(t *testing.T) {
 	}
 }
 
-func TestWP137HermesPortableGitOfficialMirror(t *testing.T) {
-	previous := client
-	mirror := false
-	client = &http.Client{Transport: transportFunc(func(r *http.Request) (*http.Response, error) {
-		if r.URL.Host == "hermes-assets.nousresearch.com" {
-			mirror = true
-		}
-		return &http.Response{StatusCode: 403, Status: "403 Forbidden", Header: make(http.Header), Body: io.NopCloser(bytes.NewReader(nil)), Request: r}, nil
-	})}
-	defer func() { client = previous }()
-	m, _ := fixture(t)
-	m.OS = "windows"
-	_, _ = m.hermesGit(context.Background(), t.TempDir(), map[string]string{})
-	if !mirror {
-		t.Fatal("MISSING_OFFICIAL_PORTABLE_GIT_AVAILABILITY_MIRROR")
-	}
-}
-
 func TestWP137ZipSymlinkRefused(t *testing.T) {
 	var b bytes.Buffer
 	z := zip.NewWriter(&b)

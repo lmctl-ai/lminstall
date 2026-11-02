@@ -1,7 +1,12 @@
 # lminstall
 
 A single static Go application to install, verify, upgrade and uninstall coding
-provider CLIs using their official distribution channels. Linux amd64/arm64,
+provider CLIs using their official distribution channels. **lminstall never shells
+out to install anything**: no npm, git, curl, tar, unzip, PowerShell, bash, uv or
+vendor installer script is started. Downloads, SHA-256/SHA-512 verification,
+archive extraction, npm registry resolution and launcher creation are all Go. The
+only child process lminstall starts while installing is the freshly installed
+provider's own `--version` (and, for Hermes, the vendor's own pinned PM tools). Linux amd64/arm64,
 macOS amd64/arm64 and Windows are supported by the application; provider-specific
 availability is verified by the live Actions matrix below.
 
@@ -24,10 +29,15 @@ are not adopted or uninstalled. Native bootstrap implementations use an owned HO
 .ps1 is downloaded, embedded or executed by the product. Inspected vendor scripts
 are translated into Go download/verification/extraction/bootstrap operations.
 
-For npm providers, `npm install --global --prefix <owned-provider>/npm` is the
-user-prefix equivalent of the vendor's `npm install -g`: the same package and
-`@latest` dist-tag (npm's default), without sudo. Provide Node.js 22.19+ and npm.
-If Node/npm is missing these npm methods fail with a prerequisite error. Native
+For npm providers (Gemini, Pi, DSH, Miniplayer) lminstall contains a Go npm client
+equivalent to a user-prefix `npm install -g`: registry packument, `latest` dist-tag
+and semver range resolution, optional and platform (`os`/`cpu`/`libc`) dependencies,
+`npm:` aliases, sha512 integrity-checked tarballs, hoisting, and bin links
+(`bin/` symlinks, `.cmd` shims on Windows). Lifecycle scripts are never executed
+(as with `--ignore-scripts`). These packages are JavaScript, so running them (and
+the `--version` check) needs a `node` on PATH; npm itself is not needed.
+Claude Code, Codex, Copilot, OpenCode and Qwen use the vendors' native binary
+channels (below), which need no Node. Native
 Kimi, Antigravity and Muse do not need Node/npm/uv. Hermes bootstraps its own pinned
 uv, Python and PM-managed Node/runtime tools, even when none is on PATH.
 
@@ -75,18 +85,18 @@ All metadata, script and artifact requests require HTTPS through every redirect.
 
 | ID | Official channel / prerequisite |
 | --- | --- |
-| [claude](https://code.claude.com/docs/en/setup) | npm @anthropic-ai/claude-code; Node/npm |
-| [codex](https://github.com/openai/codex) | npm @openai/codex; Node/npm |
-| [gemini](https://github.com/google-gemini/gemini-cli) | npm @google/gemini-cli; Node/npm |
-| [copilot](https://docs.github.com/en/copilot/how-tos/copilot-cli/install-copilot-cli) | npm @github/copilot; Node/npm |
-| [opencode](https://opencode.ai/docs/) | npm opencode-ai; Node/npm |
+| [claude](https://code.claude.com/docs/en/setup) | Native installer flow in Go: `downloads.claude.ai` latest version, per-version `manifest.json` platform SHA-256 and size, versioned payload + PATH launcher; no Node |
+| [codex](https://github.com/openai/codex) | GitHub release archive for the platform triple (`rust-v*` tags), asset SHA-256 digest; no Node |
+| [gemini](https://github.com/google-gemini/gemini-cli) | npm @google/gemini-cli through the Go npm client; runs on Node |
+| [copilot](https://docs.github.com/en/copilot/how-tos/copilot-cli/install-copilot-cli) | The vendor install script's flow: `copilot-<os>-<arch>` release archive verified against the release `SHA256SUMS.txt`; no Node |
+| [opencode](https://opencode.ai/docs/) | The vendor install script's flow: `opencode-<os>-<arch>` release archive from GitHub; no Node |
 | [kimi](https://github.com/MoonshotAI/kimi-code) | Native latest/platform manifest and SHA-256 binary; region marker; no Node runtime |
-| [qwen](https://github.com/QwenLM/qwen-code) | npm @qwen-code/qwen-code; Node/npm |
-| [pi](https://github.com/earendil-works/pi) | npm @earendil-works/pi-coding-agent, official --ignore-scripts; Node/npm |
-| [dsh](https://github.com/deepseek-ai/deepseek-harness) | npm @deepseek-ai/dsh; Node/npm |
-| [miniplayer](https://github.com/lmctl-ai/miniplayer) | npm from its official public Git source; Node/npm and Git (no published releases at initial inspection) |
+| [qwen](https://github.com/QwenLM/qwen-code) | Vendor standalone archive (bundles its own Node), verified against release `SHA256SUMS`; no host Node |
+| [pi](https://github.com/earendil-works/pi) | npm @earendil-works/pi-coding-agent through the Go npm client (scripts never run); runs on Node |
+| [dsh](https://github.com/deepseek-ai/deepseek-harness) | npm @deepseek-ai/dsh through the Go npm client; runs on Node |
+| [miniplayer](https://github.com/lmctl-ai/miniplayer) | Its GitHub source tarball installed by the Go npm client (no git); runs on Node |
 | [lmplayer](https://github.com/lmctl-ai/lmplayer/releases) | Official release archive; SHA-256 from release metadata or official SHA256SUMS; no Node runtime |
-| [hermes](https://hermes-agent.nousresearch.com/docs/getting-started/installation) | Latest stable source; verified uv bootstrap, Python 3.14, official PM install and source completion; Git prerequisite on POSIX, verified portable Git bootstrap on Windows |
+| [hermes](https://hermes-agent.nousresearch.com/docs/getting-started/installation) | Latest stable source as GitHub's tag tarball (no git client); checksum-pinned uv, Python 3.14 and the vendor's pinned PM install run from the owned prefix |
 | [agy](https://antigravity.google/download) | Official updater manifest and SHA-512 artifact, without its system setup handoff |
 | [muse](https://dev.meta.ai/lp/muse-code) | Native muse-stable channel/release manifest, SHA-256 and exact artifact size; restricted downloads fail without authentication |
 | claudemock | Unavailable as a standalone CLI: it is an lmctl fixture. Enable LMCTL_ENABLE_MOCK_PROVIDER=1 in lmctl. No fake installation/version is substituted. |
@@ -130,12 +140,30 @@ steps:
       lminstall status --json
 ```
 
-Inputs: `providers` (required space-separated IDs), optional `root`.
+Inputs: `providers` (required space-separated IDs), optional `root`. An ambient
+`GITHUB_TOKEN`/`GH_TOKEN` is used only to raise the GitHub release-API quota (as the
+vendors' own scripts do); it is never sent to downloads.
 Output: `executable`, the native lminstall path. It builds this repository with
 CGO_ENABLED=0, sets up Node/npm, installs the requested providers and exports
 paths and LMINSTALL_ROOT so later status/upgrade/uninstall commands use the same
 prefix. No token/key inputs, release fetching of lminstall itself or manual tags.
 It fails when a requested provider is unavailable; it never silently skips one.
+
+## Releases and CI
+
+`release.yml` runs on every push to `main`. It calls `ci.yml` (unit tests plus real
+installs of every provider on Linux amd64/arm64, macOS amd64/arm64 and Windows
+amd64, with **no npm, git, uv, curl or tar on PATH**; JavaScript providers get a
+PATH containing only `node`) and `launch-mock.yml` (every installed provider driven
+against the released lmmock API mock). Only if both pass does it cross-compile static
+binaries for linux/darwin/windows × amd64/arm64 and publish them with `SHA256SUMS`
+as a GitHub Release (`v0.1.N`). Nothing is published to npm.
+
+`launch-mock.yml` uses `lmmock --builtin llm-api` (no Node or script compiler). On
+Ubuntu the real client talks to [lminspect](https://github.com/lmctl-ai/lminspect)
+in reverse-proxy mode in front of lmmock; the recorded `flows.jsonl` and the
+`coverage-gaps.json` report list every request a CLI made that lmmock did not
+serve, which is how new routes for lmmock are discovered.
 
 ## CI evidence and exceptions
 

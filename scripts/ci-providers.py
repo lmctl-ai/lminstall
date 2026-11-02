@@ -20,12 +20,35 @@ if sys.platform=='linux':
  for name in excluded:
   assert shutil.which(name,path=str(minimal)) is None,name
 
+# Hermetic host: lminstall is a standalone Go program and must not need npm, git,
+# uv, curl, tar or any installer on PATH. Native providers see an empty PATH;
+# JavaScript providers (run by the installed package, not installed by it) see a
+# directory holding only `node`. Hermes' own vendor PM runs from its pinned tools.
+hermetic=root/'hermetic'
+empty=hermetic/'empty'; nodeonly=hermetic/'node-only'
+empty.mkdir(parents=True,exist_ok=True); nodeonly.mkdir(parents=True,exist_ok=True)
+node=shutil.which('node'); assert node,'node is required to run JavaScript providers'
+target=nodeonly/pathlib.Path(node).name
+if not target.exists():
+ try: target.symlink_to(node)
+ except OSError: shutil.copy2(node,target)
+for tool in ('npm','git','uv','curl','tar','unzip'):
+ for d in (empty,nodeonly): assert shutil.which(tool,path=str(d)) is None,(tool,d)
+JS={'gemini','pi','dsh','miniplayer'}
+HERMES={'hermes'}
+def host_path(name):
+ if name in HERMES: return None
+ return str(nodeonly if name in JS else empty)
+
 def call(op,name):
  print(json.dumps({'provider':name,'operation':op,'event':'start'}),flush=True)
  env=os.environ.copy()
- if sys.platform=='linux' and name in {'kimi','agy','muse','hermes'}:
+ hp=host_path(name)
+ if hp:
+  env['PATH']=hp
+  print(json.dumps({'provider':name,'hermetic_path':hp}),flush=True)
+ elif sys.platform=='linux' and name in HERMES:
   env['PATH']=str(minimal)
-  print(json.dumps({'provider':name,'no_host_node_npm_uv':True}),flush=True)
  p=subprocess.run([binary,op,name,'--root',str(root),'--json'],stdout=subprocess.PIPE,stderr=None,env=env)
  try:rows=json.loads(p.stdout);row=rows[0]
  except (ValueError,IndexError):row={'reason':p.stdout.decode(errors='replace')}

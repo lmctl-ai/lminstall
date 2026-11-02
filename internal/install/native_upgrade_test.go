@@ -94,6 +94,7 @@ func TestNativeRejectedUpgradeKeepsBinaryAndReceipt(t *testing.T) {
 				recipe.Channel = "release"
 				recipe.Repository = "fixture/tool"
 				recipe.Asset = "tool.zip"
+				recipe.ArchiveBinary = ""
 			}
 			m.Manifest.Providers[0].Recipes["*"] = recipe
 			first, err := m.Apply(context.Background(), "install", "tool")

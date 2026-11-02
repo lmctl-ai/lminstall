@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -251,3 +252,5 @@ func fetchKimiPayload(ctx context.Context, base, version, target, filename, chec
 	}
 	return raw, nil
 }
+
+func hostOS() string { return runtime.GOOS }

@@ -24,7 +24,7 @@ func (m *Manager) LaunchCommand(provider string, args []string) ([]string, error
 	if e != nil || json.Unmarshal(b, &rec) != nil || rec.Provider != provider {
 		return nil, errors.New("provider_not_installed")
 	}
-	if (p.Recipe(m.OS).Channel == "kimi" || p.Recipe(m.OS).Channel == "muse" || p.Recipe(m.OS).Channel == "hermes") && rec.Channel != p.Recipe(m.OS).Channel {
+	if (p.Recipe(m.OS).Channel == "kimi" || p.Recipe(m.OS).Channel == "muse" || p.Recipe(m.OS).Channel == "hermes" || p.Recipe(m.OS).Channel == "claude") && rec.Channel != p.Recipe(m.OS).Channel {
 		return nil, errors.New("provider_method_migration_required")
 	}
 	binary, e := relative(dir, rec.Bin)
@@ -34,7 +34,7 @@ func (m *Manager) LaunchCommand(provider string, args []string) ([]string, error
 	if _, e = os.Stat(binary); e != nil {
 		return nil, errors.New("installed_binary_missing")
 	}
-	if runtime.GOOS != "windows" || !strings.EqualFold(filepath.Ext(binary), ".cmd") {
+	if runtime.GOOS != "windows" || p.Recipe(m.OS).Channel != "npm" || !strings.EqualFold(filepath.Ext(binary), ".cmd") {
 		return append([]string{binary}, args...), nil
 	}
 	return ResolveNPMEntry(binary, p.Binary, p.LaunchConfig.NPMPackage, args)

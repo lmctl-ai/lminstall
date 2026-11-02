@@ -1,10 +1,8 @@
 name: launch-mock
 on:
-  push:
-    branches: [main]
-    paths: ['cmd/**', 'internal/**', 'configure/**', '.github/workflows/launch-mock.yml', 'go.mod', 'action.yml', 'scripts/mutate-launch.go']
   pull_request:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -34,20 +32,28 @@ jobs:
           model: ${{ matrix.provider == 'gemini' && 'gemini-2.5-flash' || matrix.provider == 'agy' && 'gemini-3.8-flash' || 'mock-agent' }}
           credential-env: PROVIDER_MOCK_KEY
           profile-dir: ${{ github.workspace }}/artifacts/profile
-      - name: Build qualification driver and private fixture compiler
+      - name: Build qualification driver
         run: |
           go test ./...
           go build -o "$RUNNER_TEMP/mock-e2e.exe" ./cmd/lminstall-mock-e2e
-          npm install --prefix "$RUNNER_TEMP/compiler" --no-audit --no-fund @lmctl-ai/lmctl@0.2.448
       - name: Required launch arguments and credential boundary mutation controls
         if: matrix.os == 'ubuntu-24.04' && matrix.provider == 'claude'
         run: go run scripts/mutate-launch.go
-      - name: Prepare checksummed released lmmock and published fixture
-        run: '"$RUNNER_TEMP/mock-e2e.exe" --prepare "$RUNNER_TEMP/provider-mock-tools" --compiler "$RUNNER_TEMP/compiler/node_modules/@lmctl-ai/lmctl/bin/lmscript"'
+      - name: Download checksummed lmmock release (mock API server is built in; no Node/compiler)
+        run: '"$RUNNER_TEMP/mock-e2e.exe" --prepare "$RUNNER_TEMP/provider-mock-tools"'
+      - name: Build lminspect (traffic recorder) to discover what each client needs mocked
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          git clone --depth 1 https://github.com/lmctl-ai/lminspect "$RUNNER_TEMP/lminspect-src"
+          go -C "$RUNNER_TEMP/lminspect-src" build -trimpath -o "$RUNNER_TEMP/lminspect" .
       - name: Configure real routing, run real tool, assert exact reply and audited POST
         env:
           PROVIDER: ${{ matrix.provider }}
-        run: '"$RUNNER_TEMP/mock-e2e.exe" --provider "$PROVIDER" --require-action-profile --lminstall "$(command -v lminstall)" --settings "$RUNNER_TEMP/provider-mock-tools/settings.json" --out artifacts'
+          INSPECT: ${{ matrix.os == 'ubuntu-24.04' && format('{0}/lminspect', runner.temp) || '' }}
+        run: |
+          args=(--provider "$PROVIDER" --require-action-profile --lminstall "$(command -v lminstall)" --settings "$RUNNER_TEMP/provider-mock-tools/settings.json" --out artifacts)
+          if [ -n "$INSPECT" ]; then args+=(--inspect "$INSPECT"); fi
+          "$RUNNER_TEMP/mock-e2e.exe" "${args[@]}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

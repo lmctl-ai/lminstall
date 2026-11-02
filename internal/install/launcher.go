@@ -41,6 +41,16 @@ func (m *Manager) publishLauncher(p Provider, bin string) error {
 		}
 	} else {
 		os.Remove(tmp)
+		if p.Recipe(m.OS).Launcher == "exec" {
+			text, e := execLauncher(bin)
+			if e != nil {
+				return e
+			}
+			if e = os.WriteFile(tmp, []byte(text), 0o755); e != nil {
+				return e
+			}
+			return os.Rename(tmp, filepath.Join(stable, name))
+		}
 		rel, e := filepath.Rel(stable, target)
 		if e != nil {
 			return e
@@ -62,6 +72,12 @@ func (m *Manager) checkLauncher(p Provider, bin string) error {
 		if e != nil || string(text) != expected {
 			return fmt.Errorf("missing or changed release launcher %s; run install to repair", path)
 		}
+	} else if p.Recipe(m.OS).Launcher == "exec" {
+		want, err := execLauncher(bin)
+		text, e := os.ReadFile(path)
+		if e != nil || err != nil || string(text) != want {
+			return fmt.Errorf("missing or changed release launcher %s; run install to repair", path)
+		}
 	} else {
 		target, e := os.Readlink(path)
 		want, err := relative(m.dir(p.ID), bin)
@@ -70,4 +86,14 @@ func (m *Manager) checkLauncher(p Provider, bin string) error {
 		}
 	}
 	return nil
+}
+
+// Some bundles locate their runtime relative to the path they were started as,
+// so a symlink would resolve to the wrong root. This wrapper only forwards to the
+// verified versioned payload; it installs nothing.
+func execLauncher(bin string) (string, error) {
+	if strings.ContainsAny(bin, "\r\n\"'$`\\") {
+		return "", fmt.Errorf("release path cannot be represented by a launcher")
+	}
+	return "#!/bin/sh\nexec \"$(dirname \"$0\")/../" + bin + "\" \"$@\"\n", nil
 }
