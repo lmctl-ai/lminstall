@@ -255,6 +255,9 @@ func withoutSystemInstallers(dir, path string) (string, error) {
 		return path, nil
 	}
 	bin := filepath.Join(dir, "prerequisites")
+	if e := os.RemoveAll(bin); e != nil {
+		return "", e
+	}
 	if e := os.MkdirAll(bin, 0700); e != nil {
 		return "", e
 	}

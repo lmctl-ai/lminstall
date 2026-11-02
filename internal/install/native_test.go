@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -184,5 +185,34 @@ func TestRunnerRefusesInstallerScripts(t *testing.T) {
 		if _, e := (ExecRunner{}).Run(context.Background(), args, "", nil, false); e == nil || !strings.Contains(e.Error(), "scripts are unsupported") {
 			t.Errorf("%v: %v", args, e)
 		}
+	}
+}
+
+func TestHermesPrivatePathReflectsCurrentPrerequisites(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX PATH isolation")
+	}
+	root := t.TempDir()
+	first := t.TempDir()
+	second := t.TempDir()
+	for _, name := range []string{"node", "git", "sudo", "apt-get"} {
+		os.WriteFile(filepath.Join(first, name), []byte("fixture"), 0700)
+	}
+	os.WriteFile(filepath.Join(second, "git"), []byte("fixture"), 0700)
+	bin, e := withoutSystemInstallers(root, first)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, name := range []string{"sudo", "apt-get"} {
+		if _, e = os.Lstat(filepath.Join(bin, name)); !os.IsNotExist(e) {
+			t.Error("system installer reachable", name)
+		}
+	}
+	bin, e = withoutSystemInstallers(root, second)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = os.Lstat(filepath.Join(bin, "node")); !os.IsNotExist(e) {
+		t.Error("previous PATH leaked Node into a later no-node invocation")
 	}
 }
