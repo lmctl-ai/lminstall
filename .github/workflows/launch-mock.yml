@@ -31,9 +31,9 @@ jobs:
           provider: ${{ matrix.provider }}
           backend: mock
           base-url: http://127.0.0.1:8080
-          model: mock-agent
+          model: ${{ matrix.provider == 'gemini' && 'gemini-2.5-flash' || matrix.provider == 'agy' && 'gemini-3.8-flash' || 'mock-agent' }}
           credential-env: PROVIDER_MOCK_KEY
-          profile-dir: ${{ runner.temp }}/action-profile
+          profile-dir: ${{ github.workspace }}/artifacts/profile
       - name: Build qualification driver and private fixture compiler
         run: |
           go test ./...
@@ -44,7 +44,7 @@ jobs:
       - name: Configure real routing, run real tool, assert exact reply and audited POST
         env:
           PROVIDER: ${{ matrix.provider }}
-        run: '"$RUNNER_TEMP/mock-e2e.exe" --provider "$PROVIDER" --lminstall "$(command -v lminstall)" --settings "$RUNNER_TEMP/provider-mock-tools/settings.json" --out artifacts'
+        run: '"$RUNNER_TEMP/mock-e2e.exe" --provider "$PROVIDER" --require-action-profile --lminstall "$(command -v lminstall)" --settings "$RUNNER_TEMP/provider-mock-tools/settings.json" --out artifacts'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

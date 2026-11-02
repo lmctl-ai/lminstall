@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/lmctl-ai/lminstall/internal/launch"
 	"io"
 	"net/http"
 	"os"
@@ -34,6 +35,7 @@ func run() error {
 	out := flag.String("out", "artifacts", "evidence")
 	prepareDir := flag.String("prepare", "", "download released fixture into absolute directory")
 	compiler := flag.String("compiler", "", "private compiler JavaScript entry")
+	requireAction := flag.Bool("require-action-profile", false, "validate and reuse the configure Action profile")
 	child := flag.Bool("child", false, "mock child")
 	flag.Parse()
 	if *prepareDir != "" {
@@ -60,6 +62,9 @@ func run() error {
 		os.WriteFile(config, b, 0600)
 		exe, _ := os.Executable()
 		args := []string{"exec", "--lmcode", s.Program, "--config", config, "--audit-log", filepath.Join(root, "audit.jsonl"), "--", exe, "--child", "--provider", *provider, "--lminstall", *tool, "--out", root}
+		if *requireAction {
+			args = append(args, "--require-action-profile")
+		}
 		cmd := exec.Command(s.Binary, args...)
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		runErr := cmd.Run()
@@ -108,6 +113,11 @@ func run() error {
 		model = "gemini-3.8-flash"
 	}
 	profile := filepath.Join(root, "profile")
+	if *requireAction {
+		if e := validateActionProfile(profile, *provider, model); e != nil {
+			return e
+		}
+	}
 	configure := exec.Command(*tool, "configure", *provider, "--backend", "mock", "--base-url", base, "--model", model, "--credential-env", "PROVIDER_MOCK_KEY", "--profile-dir", profile, "--format", "plan")
 	plan, e := configure.Output()
 	if e != nil {
@@ -183,7 +193,7 @@ func run() error {
 			return errors.New("requested_model_mismatch")
 		}
 	}
-	result := map[string]any{"provider": *provider, "exit": 0, "reply": reply, "control": "CAUGHT wrong-expectation", "configured_with": "lminstall configure/run", "profile": profile}
+	result := map[string]any{"provider": *provider, "exit": 0, "reply": reply, "control": "CAUGHT wrong-expectation", "configured_with": "lminstall configure/run", "profile": profile, "action_profile_reused": *requireAction}
 	b, _ = json.MarshalIndent(result, "", "  ")
 	os.WriteFile(filepath.Join(root, "result.json"), b, 0600)
 	fmt.Println(string(b))
@@ -299,4 +309,25 @@ func auditEvidence(b []byte) ([]byte, error) {
 		}
 	}
 	return out.Bytes(), nil
+}
+
+func validateActionProfile(dir, provider, model string) error {
+	if os.Getenv("LMINSTALL_PROVIDER") != provider || os.Getenv("LMINSTALL_BACKEND") != "mock" || os.Getenv("LMINSTALL_MODEL") != model {
+		return errors.New("composite_export_mismatch")
+	}
+	p, _, e := launch.Load(os.Getenv("LMINSTALL_PROFILE_DIR"), provider)
+	if e != nil {
+		return errors.New("composite_profile_missing")
+	}
+	if p.Backend != "mock" || p.Model != model || p.CredentialEnv != "PROVIDER_MOCK_KEY" || p.BaseURL != "http://127.0.0.1:8080" {
+		return errors.New("composite_profile_mismatch")
+	}
+	for _, pair := range [][2]string{{dir, os.Getenv("LMINSTALL_PROFILE_DIR")}, {p.InstallRoot, os.Getenv("LMINSTALL_ROOT")}} {
+		a, e1 := os.Stat(pair[0])
+		b, e2 := os.Stat(pair[1])
+		if e1 != nil || e2 != nil || !os.SameFile(a, b) {
+			return errors.New("composite_profile_directory_mismatch")
+		}
+	}
+	return nil
 }

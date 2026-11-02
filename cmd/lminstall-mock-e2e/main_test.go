@@ -1,6 +1,10 @@
 package main
 
 import (
+	"github.com/lmctl-ai/lminstall/internal/install"
+	"github.com/lmctl-ai/lminstall/internal/launch"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -48,5 +52,43 @@ func TestAuditEvidenceDoesNotRetainGoogleCredential(t *testing.T) {
 	}
 	if !strings.Contains(string(b), `"status":200`) {
 		t.Fatal("audit oracle lost")
+	}
+}
+
+func TestCompositeProfileIsConsumedBeforePortBinding(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "profile")
+	m, e := install.LoadManifest()
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = launch.Configure(m, launch.Options{Provider: "claude", Backend: "mock", BaseURL: "http://127.0.0.1:8080", Model: "mock-agent", CredentialEnv: "PROVIDER_MOCK_KEY", ProfileDir: dir, InstallRoot: root})
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Setenv("LMINSTALL_ROOT", root)
+	t.Setenv("LMINSTALL_PROFILE_DIR", dir)
+	t.Setenv("LMINSTALL_PROVIDER", "claude")
+	t.Setenv("LMINSTALL_BACKEND", "mock")
+	t.Setenv("LMINSTALL_MODEL", "mock-agent")
+	if e = validateActionProfile(dir, "claude", "mock-agent"); e != nil {
+		t.Fatal(e)
+	}
+	t.Setenv("LMINSTALL_MODEL", "WRONG")
+	if validateActionProfile(dir, "claude", "mock-agent") == nil {
+		t.Fatal("wrong Action export silently replaced by CLI configuration")
+	}
+	t.Setenv("LMINSTALL_MODEL", "mock-agent")
+	other := t.TempDir()
+	t.Setenv("LMINSTALL_PROFILE_DIR", other)
+	if validateActionProfile(dir, "claude", "mock-agent") == nil {
+		t.Fatal("unused Action profile accepted")
+	}
+	t.Setenv("LMINSTALL_PROFILE_DIR", dir)
+	if e = os.Remove(filepath.Join(dir, "profile.json")); e != nil {
+		t.Fatal(e)
+	}
+	if validateActionProfile(dir, "claude", "mock-agent") == nil {
+		t.Fatal("missing Action profile accepted")
 	}
 }
