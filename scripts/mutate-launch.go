@@ -73,6 +73,9 @@ func run() error {
 		return e
 	}
 	cases := []mutation{
+		{"release next page ignored", "internal/install/archive.go", "endpoint = u.ResolveReference(ref).String()", "endpoint = u.ResolveReference(ref).String()[:0]"},
+		{"release foreign page trusted", "internal/install/archive.go", `u.Host != "api.github.com"`, `false`},
+		{"Windows POSIX launcher unchecked", "internal/install/launcher.go", "if err != nil || errRead != nil || string(contents) != want {", "if false && (err != nil || errRead != nil || string(contents) != want) {"},
 		{"padded credential accepted by run", "internal/launch/run.go", "if !validCredential(credential) {", "if !safeValue(credential) {"},
 		{"padded credential accepted by bridge", "internal/launch/bridge.go", "if !validCredential(credential) {", "if !safeValue(credential) {"},
 		{"unsupported base path accepted", "internal/launch/profile.go", `if u.Path != "" {`, `if false {`},
@@ -151,7 +154,31 @@ func run() error {
 	test := func() ([]byte, error) {
 		cmd := exec.Command("go", "test", "-count=1", "./...")
 		cmd.Dir = copy
-		return cmd.CombinedOutput()
+		b, err := cmd.CombinedOutput()
+		if err != nil || runtime.GOOS == "windows" {
+			return b, err
+		}
+		// Exercise the actual Windows validation branch on other test hosts too.
+		// Only OS selection changes in this compile overlay, never validation.
+		path := filepath.Join(copy, "internal/install/launcher.go")
+		source, err := os.ReadFile(path)
+		if err != nil {
+			return b, err
+		}
+		branch := filepath.Join(tmp, "windows-branch.go")
+		if err = os.WriteFile(branch, []byte(strings.ReplaceAll(string(source), `runtime.GOOS == "windows"`, `(m.OS == "windows" && runtime.GOOS != "")`)), 0600); err != nil {
+			return b, err
+		}
+		overlay, _ := json.Marshal(map[string]any{"Replace": map[string]string{path: branch}})
+		overlayFile := filepath.Join(tmp, "overlay.json")
+		if err = os.WriteFile(overlayFile, overlay, 0600); err != nil {
+			return b, err
+		}
+		windows := exec.Command("go", "test", "-overlay", overlayFile, "-count=1", "./internal/install", "-run", "TestWindowsRequiresBothOwnedLaunchers")
+		windows.Dir = copy
+		windows.Env = append(os.Environ(), "LMINSTALL_TEST_WINDOWS_BRANCH=1")
+		extra, err := windows.CombinedOutput()
+		return append(b, extra...), err
 	}
 	b, e := test()
 	if e != nil {

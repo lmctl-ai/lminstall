@@ -498,33 +498,71 @@ func firstEnv(names ...string) string {
 // matchingRelease returns the newest published, non-prerelease release whose tag
 // matches pattern.
 func (m *Manager) matchingRelease(ctx context.Context, r Recipe, pattern *regexp.Regexp) (releaseInfo, error) {
-	req, e := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+r.Repository+"/releases?per_page=50", nil)
-	if e != nil {
-		return releaseInfo{}, e
-	}
-	req.Header.Set("User-Agent", "lminstall")
-	if token := firstEnv("GITHUB_TOKEN", "GH_TOKEN"); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, e := secureDo(req)
-	if e != nil {
-		return releaseInfo{}, e
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return releaseInfo{}, fmt.Errorf("official release list for %s: %s", r.Repository, resp.Status)
-	}
-	var list []struct {
-		releaseInfo
-		Draft      bool `json:"draft"`
-		Prerelease bool `json:"prerelease"`
-	}
-	if e = json.NewDecoder(resp.Body).Decode(&list); e != nil {
-		return releaseInfo{}, e
-	}
-	for _, candidate := range list {
-		if !candidate.Draft && !candidate.Prerelease && pattern.MatchString(candidate.Tag) {
-			return candidate.releaseInfo, nil
+	base := "https://api.github.com/repos/" + r.Repository + "/releases"
+	endpoint := base + "?per_page=50"
+	seen := map[string]bool{}
+	for endpoint != "" {
+		u, err := url.Parse(endpoint)
+		if err != nil || u.Scheme != "https" || u.Host != "api.github.com" || u.User != nil || u.Fragment != "" || u.Path != "/repos/"+r.Repository+"/releases" {
+			return releaseInfo{}, fmt.Errorf("untrusted release pagination URL")
+		}
+		if seen[endpoint] {
+			return releaseInfo{}, fmt.Errorf("release pagination cycle")
+		}
+		seen[endpoint] = true
+		req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+		if err != nil {
+			return releaseInfo{}, err
+		}
+		req.Header.Set("User-Agent", "lminstall")
+		if token := firstEnv("GITHUB_TOKEN", "GH_TOKEN"); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, err := secureDo(req)
+		if err != nil {
+			return releaseInfo{}, err
+		}
+		var list []struct {
+			releaseInfo
+			Draft      bool `json:"draft"`
+			Prerelease bool `json:"prerelease"`
+		}
+		if resp.StatusCode != 200 {
+			resp.Body.Close()
+			return releaseInfo{}, fmt.Errorf("official release list for %s: %s", r.Repository, resp.Status)
+		}
+		err = json.NewDecoder(resp.Body).Decode(&list)
+		resp.Body.Close()
+		if err != nil {
+			return releaseInfo{}, err
+		}
+		for _, candidate := range list {
+			if !candidate.Draft && !candidate.Prerelease && pattern.MatchString(candidate.Tag) {
+				return candidate.releaseInfo, nil
+			}
+		}
+		endpoint = ""
+		for _, link := range strings.Split(resp.Header.Get("Link"), ",") {
+			parts := strings.Split(link, ";")
+			next := false
+			for _, parameter := range parts[1:] {
+				if strings.TrimSpace(parameter) == `rel="next"` {
+					next = true
+				}
+			}
+			if !next {
+				continue
+			}
+			target := strings.TrimSpace(parts[0])
+			if len(target) < 2 || target[0] != '<' || target[len(target)-1] != '>' {
+				return releaseInfo{}, fmt.Errorf("untrusted release pagination URL")
+			}
+			ref, err := url.Parse(target[1 : len(target)-1])
+			if err != nil {
+				return releaseInfo{}, fmt.Errorf("untrusted release pagination URL")
+			}
+			endpoint = u.ResolveReference(ref).String()
+			break
 		}
 	}
 	return releaseInfo{}, fmt.Errorf("no published %s release matches %s", r.Repository, r.TagPattern)

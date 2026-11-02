@@ -84,6 +84,14 @@ func (m *Manager) checkLauncher(p Provider, bin string) error {
 		if e != nil || string(text) != expected {
 			return fmt.Errorf("missing or changed release launcher %s; run install to repair", path)
 		}
+		// Git Bash resolves the extension-less launcher, so both entry points
+		// must validate before repeat install can return the existing receipt.
+		shell := filepath.Join(m.dir(p.ID), "bin", p.Binary)
+		want, err := execLauncher(bin)
+		contents, errRead := os.ReadFile(shell)
+		if err != nil || errRead != nil || string(contents) != want {
+			return fmt.Errorf("missing or changed release launcher %s; run install to repair", shell)
+		}
 	} else if p.Recipe(m.OS).Launcher == "exec" {
 		want, err := execLauncher(bin)
 		text, e := os.ReadFile(path)
