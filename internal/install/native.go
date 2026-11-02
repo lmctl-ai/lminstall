@@ -2,6 +2,8 @@ package install
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -90,7 +92,8 @@ func (m *Manager) kimi(ctx context.Context, p Provider, r Recipe, dir string) (s
 	}
 	defer os.RemoveAll(stage)
 	candidate := filepath.Join(stage, filepath.Base(dest))
-	if e = download(ctx, base+"/binaries/"+url.PathEscape(version)+"/"+url.PathEscape(asset.Filename), candidate, "sha256:"+asset.Checksum); e != nil {
+	candidate, e = fetchKimiPayload(ctx, base, version, target, asset.Filename, asset.Checksum, stage, candidate)
+	if e != nil {
 		return "", "", e
 	}
 	if e = os.Chmod(candidate, 0755); e != nil {
@@ -207,4 +210,42 @@ func (m *Manager) muse(ctx context.Context, p Provider, r Recipe, dir string) (s
 		return "", "", e
 	}
 	return bin, m.expand(r.BinDir, dir), nil
+}
+
+// Match the official archive-first order. The script authenticates the extracted
+// binary, not the compressed container. Only that verified binary is published.
+func fetchKimiPayload(ctx context.Context, base, version, target, filename, checksum, stage, raw string) (string, error) {
+	archive := filepath.Join(stage, "kimi.tar.gz")
+	location := base + "/binaries/" + url.PathEscape(version) + "/kimi-code-" + target + ".tar.gz"
+	if e := download(ctx, location, archive, ""); e == nil {
+		extracted := filepath.Join(stage, "extracted")
+		if e = extractArchive(archive, extracted); e == nil {
+			name := "kimi"
+			if strings.HasPrefix(target, "win32-") {
+				name += ".exe"
+			}
+			candidate := filepath.Join(extracted, name)
+			if stat, err := os.Stat(candidate); err == nil && stat.Mode().IsRegular() {
+				f, e := os.Open(candidate)
+				if e != nil {
+					return "", e
+				}
+				h := sha256.New()
+				_, e = io.Copy(h, f)
+				f.Close()
+				if e != nil {
+					return "", e
+				}
+				if !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), checksum) {
+					return "", fmt.Errorf("Kimi extracted binary checksum mismatch")
+				}
+				return candidate, nil
+			}
+		}
+	}
+	// Download or extraction unavailable: the vendor's bare-binary fallback.
+	if e := download(ctx, base+"/binaries/"+url.PathEscape(version)+"/"+url.PathEscape(filename), raw, "sha256:"+checksum); e != nil {
+		return "", e
+	}
+	return raw, nil
 }

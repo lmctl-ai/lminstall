@@ -1,6 +1,9 @@
 package install
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -419,6 +422,79 @@ func TestChangedNativeMethodDoesNotReuseLegacyReceipt(t *testing.T) {
 			}
 			if len(f.calls) != before {
 				t.Fatal("legacy runtime executed before method migration")
+			}
+		})
+	}
+}
+
+func kimiTarFixture(t *testing.T, body []byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	gz := gzip.NewWriter(&out)
+	archive := tar.NewWriter(gz)
+	if e := archive.WriteHeader(&tar.Header{Name: "kimi", Mode: 0755, Size: int64(len(body))}); e != nil {
+		t.Fatal(e)
+	}
+	archive.Write(body)
+	archive.Close()
+	gz.Close()
+	return out.Bytes()
+}
+func TestKimiPrefersOfficialArchiveAndVerifiesBinary(t *testing.T) {
+	for _, mode := range []string{"archive", "raw-fallback", "wrong-binary"} {
+		t.Run(mode, func(t *testing.T) {
+			data := []byte("verified native binary")
+			h := sha256.Sum256(data)
+			sum := hex.EncodeToString(h[:])
+			payload := data
+			if mode == "wrong-binary" {
+				payload = []byte("corrupt binary")
+			}
+			packed := kimiTarFixture(t, payload)
+			rawHits := 0
+			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/latest":
+					fmt.Fprint(w, "1.2.3")
+				case "/binaries/1.2.3/manifest.json":
+					fmt.Fprintf(w, `{"version":"1.2.3","platforms":{"linux-x64":{"filename":"native","checksum":%q}}}`, sum)
+				case "/binaries/1.2.3/kimi-code-linux-x64.tar.gz":
+					if mode == "raw-fallback" {
+						w.WriteHeader(503)
+					} else {
+						w.Write(packed)
+					}
+				default:
+					rawHits++
+					if mode == "raw-fallback" {
+						w.Write(data)
+					} else {
+						w.WriteHeader(503)
+					}
+				}
+			}))
+			defer s.Close()
+			old := client
+			client = s.Client()
+			defer func() { client = old }()
+			m, f := fixture(t)
+			m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "kimi", UpdateURL: s.URL, Bin: "bin/tool", BinDir: "bin"}
+			result, e := m.Apply(context.Background(), "install", "tool")
+			if mode == "wrong-binary" {
+				if e == nil || len(f.calls) != 0 || rawHits != 0 {
+					t.Fatalf("corrupt archive executed/fell back: %+v %v calls=%v raw=%d", result, e, f.calls, rawHits)
+				}
+				return
+			}
+			if e != nil || result.State != "installed" {
+				t.Fatalf("%+v %v", result, e)
+			}
+			want := 0
+			if mode == "raw-fallback" {
+				want = 1
+			}
+			if rawHits != want {
+				t.Fatalf("raw requests %d want %d", rawHits, want)
 			}
 		})
 	}

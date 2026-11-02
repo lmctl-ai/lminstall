@@ -167,8 +167,10 @@ in Go, and release payloads retain their vendor checksum verification.
 Manifests execute installation code and are trusted
 configuration; official source/provenance review is part of adding an entry.
 
-Kimi uses the binary SHA-256 from its versioned manifest (the vendor's script
-allows the same bare-binary path as a tarball fallback). Muse's script checks its
+Kimi follows the vendor's compressed-tarball-first order, then its bare-binary
+fallback on download/extraction failure. The extracted binary must match the
+versioned manifest's SHA-256; a wrong binary hash never falls back. The container
+has no separate publisher hash, and only the verified native binary is published. Muse's script checks its
 launcher against an optional HTTP hash header, then its launcher requires a
 SHA-256 and exact size for the native payload; Go skips the launcher entirely
 and enforces both payload checks. Antigravity uses the official updater SHA-512.
