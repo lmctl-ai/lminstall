@@ -62,10 +62,24 @@ func run() error {
 		args := []string{"exec", "--lmcode", s.Program, "--config", config, "--audit-log", filepath.Join(root, "audit.jsonl"), "--", exe, "--child", "--provider", *provider, "--lminstall", *tool, "--out", root}
 		cmd := exec.Command(s.Binary, args...)
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-		if e = cmd.Run(); e != nil {
-			return e
+		runErr := cmd.Run()
+		auditPath := filepath.Join(root, "audit.jsonl")
+		b, e = os.ReadFile(auditPath)
+		if e == nil {
+			clean, err := auditEvidence(b)
+			if err != nil {
+				os.Remove(auditPath)
+				return err
+			}
+			if err = os.WriteFile(auditPath, clean, 0600); err != nil {
+				os.Remove(auditPath)
+				return err
+			}
 		}
-		b, e = os.ReadFile(filepath.Join(root, "audit.jsonl"))
+		if runErr != nil {
+			return runErr
+		}
+		b, e = os.ReadFile(auditPath)
 		if e != nil {
 			return e
 		}
@@ -262,4 +276,27 @@ func inspectionEvidence(b []byte) ([]byte, error) {
 		return nil, e
 	}
 	return json.Marshal(evidence)
+}
+
+func auditEvidence(b []byte) ([]byte, error) {
+	// Released lmmock masks several auth headers, but not x-goog-api-key.
+	// Whitelist only the request facts used by this oracle before upload.
+	var out bytes.Buffer
+	for _, line := range bytes.Split(b, []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var row struct {
+			Method string `json:"method"`
+			URL    string `json:"url"`
+			Status int    `json:"status"`
+		}
+		if e := json.Unmarshal(line, &row); e != nil {
+			return nil, e
+		}
+		if e := json.NewEncoder(&out).Encode(row); e != nil {
+			return nil, e
+		}
+	}
+	return out.Bytes(), nil
 }

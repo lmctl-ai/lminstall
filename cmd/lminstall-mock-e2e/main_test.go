@@ -37,3 +37,16 @@ func TestInspectionEvidenceNeverPersistsUpstreamCredential(t *testing.T) {
 		t.Fatal("request oracle evidence lost")
 	}
 }
+
+func TestAuditEvidenceDoesNotRetainGoogleCredential(t *testing.T) {
+	b, e := auditEvidence([]byte(`{"method":"POST","url":"/v1beta/models/x","status":200,"headers":{"X-Goog-Api-Key":["SYNTHETIC-SECRET-138"]}}` + "\n"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if strings.Contains(string(b), "SYNTHETIC-SECRET-138") || strings.Contains(string(b), "headers") {
+		t.Fatal("upstream credential in released mock audit artifact")
+	}
+	if !strings.Contains(string(b), `"status":200`) {
+		t.Fatal("audit oracle lost")
+	}
+}
