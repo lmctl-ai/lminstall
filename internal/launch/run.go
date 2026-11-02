@@ -123,7 +123,7 @@ func Run(ctx context.Context, manifest install.Manifest, provider, dir string, a
 	errout := redactor(streams.Err, patterns)
 	cmd.Stdout = out
 	cmd.Stderr = errout
-	e = executeRuntime(cmd)
+	e = executeRuntime(cmd, provider == "hermes")
 	out.Close()
 	errout.Close()
 	// The profile has a unique empty HOME for this invocation. Gateway cleanup is

@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-func executeRuntime(cmd *exec.Cmd) error {
+func executeRuntime(cmd *exec.Cmd, _ bool) error {
 	out, errout := cmd.Stdout, cmd.Stderr
 	r1, w1, e := os.Pipe()
 	if e != nil {

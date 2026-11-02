@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-func ExecuteOwned(cmd *exec.Cmd) error { return runOwned(cmd) }
 func (m *Manager) LaunchCommand(provider string, args []string) ([]string, error) {
 	p, e := m.Manifest.Provider(provider)
 	if e != nil {
