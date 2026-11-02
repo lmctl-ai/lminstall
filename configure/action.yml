@@ -1,0 +1,34 @@
+name: Configure an isolated provider launch
+description: Persist a nonsecret launch profile; credentials are read only by lminstall run.
+inputs:
+  provider:
+    description: Installed provider ID.
+    required: true
+  backend:
+    description: mock, ollama-cloud or ollama-local (qualified support varies).
+    required: true
+  base-url:
+    description: Backend origin; no credentials or query string.
+    required: true
+  model:
+    description: Backend model ID.
+    required: true
+  credential-env:
+    description: Environment variable NAME, never its value.
+    required: false
+  profile-dir:
+    description: Absolute owned profile directory.
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        LAUNCH_PROVIDER: ${{ inputs.provider }}
+        LAUNCH_BACKEND: ${{ inputs.backend }}
+        LAUNCH_BASE: ${{ inputs.base-url }}
+        LAUNCH_MODEL: ${{ inputs.model }}
+        LAUNCH_CREDENTIAL_NAME: ${{ inputs.credential-env }}
+        LAUNCH_PROFILE: ${{ inputs.profile-dir }}
+      run: |
+        lminstall configure "$LAUNCH_PROVIDER" --backend "$LAUNCH_BACKEND" --base-url "$LAUNCH_BASE" --model "$LAUNCH_MODEL" --credential-env "$LAUNCH_CREDENTIAL_NAME" --profile-dir "$LAUNCH_PROFILE" --format github-env >> "$GITHUB_ENV"

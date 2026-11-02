@@ -51,7 +51,7 @@ Unowned directories are refused. Concurrent operations on one provider fail busy
 immediately; no polling or waiting policy is added. If an installer is killed,
 remove its named lock only after confirming that installer process has exited.
 
-No application timeouts, sleeps, output caps, model prompts or authentication.
+Installation has no application timeouts, sleeps, output caps, model prompts or authentication.
 Child output streams to stderr; JSON remains on stdout. Verification requires a
 successful `--version` with a version number. Release archives and updater
 artifacts must also report the selected tag/manifest version as a complete version
@@ -210,3 +210,85 @@ ownership, missing/null digests, HTTPS downgrade refusal, exact selected version
 archive traversal and >1 MiB payload/output. Real installs run only in Actions.
 Run `python3 scripts/mutate.py` to check production fault controls against the suite.
 No releases or tags are published manually.
+
+## Configure and run a provider
+
+Installation and model routing are separate operations. The launch commands use
+version 1 `launch_config` entries in the same provider catalog. They do not execute
+vendor installer scripts, call Ollama launch, or modify your existing tool config.
+
+```sh
+lminstall configure claude --backend mock --base-url http://127.0.0.1:8080 \
+  --model mock-agent --credential-env MOCK_API_KEY --profile-dir /absolute/profile
+lminstall run claude --profile-dir /absolute/profile -- -p 'Hello' --tools ''
+```
+
+`configure` emits a JSON plan by default (`--format plan`). It writes `profile.json`
+and nonsecret config previews under an owned, absolute `--profile-dir`; nonempty
+unowned directories and profiles owned by another provider are refused. It never
+reads the named credential environment variable. `--format github-env` emits only
+LMINSTALL_PROFILE_DIR, LMINSTALL_PROVIDER, LMINSTALL_BACKEND and LMINSTALL_MODEL.
+It does not emit provider credential bindings or shell code to evaluate.
+`--root`/LMINSTALL_ROOT selects the installed prefix at configure time, and the
+profile remembers it. Reconfigure a profile to pick up changed catalog routing.
+Custom manifests are trusted executable configuration, including launch adapters.
+
+`run` starts the managed binary with literal arguments after `--`. Each invocation
+gets a new HOME, USERPROFILE, XDG directories and working directory. These runtime
+files are removed on exit; sessions and work produced there are ephemeral. It does
+not reuse your login or ambient API-key environment. This isolation is configuration
+isolation, not an OS sandbox; provider tools still run with your user's privileges.
+Required model/routing switches precede your arguments; avoid overriding them.
+The provider's exit code is preserved; invalid profile/CLI data exits 2, launch or
+missing runtime credential failures exit 1. Stdout and stderr remain separate.
+
+Secrets are looked up only at run time from `--credential-env NAME`. Do not put a
+key in the model, URL, argv, profile path, manifest or Action inputs. A Go loopback
+bridge binds authorization to the configured upstream in memory; the child sees
+only a fresh random placeholder. This also supports tools that require a key in
+a config file without persisting the actual key. No matching key is sent to an
+unauthenticated loopback request. Response headers/body and child output redact
+raw credentials and common URL/JSON/unicode/hex/base64/UTF-16 encodings. Arbitrary
+transforms are not a universal data-loss-prevention guarantee. No request payload,
+credential, live response or environment dump is logged by lminstall itself.
+There are no application deadlines, sleeps or output caps.
+
+| Backend | Supported tools | Qualification |
+| --- | --- | --- |
+| mock | claude, codex, gemini, copilot, opencode, kimi, qwen, pi, dsh, miniplayer, lmplayer, hermes, agy | HTTP literal-loopback base; native API dialects against released lmmock |
+| ollama-cloud | claude | HTTPS origin https://ollama.com; named credential required; Anthropic Messages compatibility |
+| ollama-local | none yet | Explicit unsupported error; no inferred compatibility |
+
+Muse has no qualified launch adapter; claudemock is an lmctl fixture. Other tools
+explicitly refuse Ollama Cloud. Unknown dialect qualification belongs to lminspect.
+OpenRouter and DeepSeek live routes are not advertised as supported backends.
+Gemini/Antigravity need model IDs their clients recognize, even with a mock server.
+Claude binds the requested model to primary, default tier and subagent slots.
+Origin-shaped adapters reject a `/v1` suffix; versioned adapters accept an origin
+or a single `/v1` and produce one `/v1`. Plans describe these bindings explicitly.
+
+After the installation Action, another repository can use the configure step:
+
+```yaml
+- uses: lmctl-ai/lminstall@main # pin the same reviewed commit for both steps
+  with:
+    providers: claude
+- uses: lmctl-ai/lminstall/configure@main
+  with:
+    provider: claude
+    backend: ollama-cloud
+    base-url: https://ollama.com
+    model: glm-5.3:flash
+    credential-env: OLLAMA_API_KEY
+    profile-dir: ${{ runner.temp }}/claude-profile
+- shell: bash
+  env:
+    OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+  run: lminstall run claude --profile-dir "$LMINSTALL_PROFILE_DIR" -- -p 'Hello' --tools ''
+```
+
+The `launch-mock` workflow runs install → configure → run → exact reply/assertion
+with real tools on Ubuntu, macOS and Windows, a checksummed lmmock release and a
+wrong-expectation failing control. Live keys never enter this matrix. Installation
+CI remains a separate full-catalog lifecycle check. Offline launch controls:
+`python3 scripts/mutate-launch.py`.

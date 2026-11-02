@@ -1,0 +1,53 @@
+name: launch-mock
+on:
+  push:
+    branches: [main]
+    paths: ['cmd/**', 'internal/**', 'configure/**', '.github/workflows/launch-mock.yml', 'go.mod', 'action.yml']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: launch-mock-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  launch:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
+        provider: [claude, codex, gemini, copilot, opencode, kimi, qwen, pi, dsh, miniplayer, lmplayer, hermes, agy]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: ./
+        with:
+          providers: ${{ matrix.provider }}
+      - uses: ./configure
+        with:
+          provider: ${{ matrix.provider }}
+          backend: mock
+          base-url: http://127.0.0.1:8080
+          model: mock-agent
+          credential-env: PROVIDER_MOCK_KEY
+          profile-dir: ${{ runner.temp }}/action-profile
+      - name: Build qualification driver and private fixture compiler
+        run: |
+          go test ./...
+          go build -o "$RUNNER_TEMP/mock-e2e.exe" ./cmd/lminstall-mock-e2e
+          npm install --prefix "$RUNNER_TEMP/compiler" --no-audit --no-fund @lmctl-ai/lmctl@0.2.448
+      - name: Prepare checksummed released lmmock and published fixture
+        run: '"$RUNNER_TEMP/mock-e2e.exe" --prepare "$RUNNER_TEMP/provider-mock-tools" --compiler "$RUNNER_TEMP/compiler/node_modules/@lmctl-ai/lmctl/bin/lmscript"'
+      - name: Configure real routing, run real tool, assert exact reply and audited POST
+        env:
+          PROVIDER: ${{ matrix.provider }}
+        run: '"$RUNNER_TEMP/mock-e2e.exe" --provider "$PROVIDER" --lminstall "$(command -v lminstall)" --settings "$RUNNER_TEMP/provider-mock-tools/settings.json" --out artifacts'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: launch-${{ matrix.provider }}-${{ matrix.os }}
+          path: artifacts/
+          if-no-files-found: warn
