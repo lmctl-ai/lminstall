@@ -266,3 +266,42 @@ func sha256Sum(b []byte) string {
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }
+
+// A monorepo's "latest" release may belong to another component (qwen-code
+// publishes an SDK). tag_pattern must select the newest release of the product.
+func TestReleaseTagPatternSkipsUnrelatedLatest(t *testing.T) {
+	data := []byte("tool 2.0.0\n")
+	payload := zipBytes(t, "bundle/tool", data)
+	sum := sha256Sum(payload)
+	var base string
+	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/releases/latest"):
+			fmt.Fprint(w, `{"tag_name":"sdk-typescript-v0.1.27","assets":[]}`)
+		case strings.HasSuffix(r.URL.Path, "/releases"):
+			fmt.Fprintf(w, `[{"tag_name":"sdk-typescript-v0.1.27","assets":[]},{"tag_name":"v2.1.0-preview.1","prerelease":true,"assets":[]},{"tag_name":"v2.0.0","assets":[{"name":"tool-2.0.0.zip","digest":"sha256:%s","browser_download_url":%q}]}]`, sum, base+"/payload.zip")
+		default:
+			w.Write(payload)
+		}
+	}))
+	defer s.Close()
+	base = s.URL
+	old := client
+	client = s.Client()
+	tr := client.Transport
+	client.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+		c := r.Clone(r.Context())
+		u := *c.URL
+		u.Host = strings.TrimPrefix(base, "https://")
+		c.URL = &u
+		return tr.RoundTrip(c)
+	})
+	defer func() { client = old }()
+	m, f := fixture(t)
+	f.output = "tool 2.0.0\n"
+	m.Manifest.Providers[0].Recipes["*"] = Recipe{Channel: "release", Repository: "fixture/tool", Asset: "tool-{version}.zip", TagPattern: `^v[0-9]+\.[0-9]+\.[0-9]+$`}
+	res, e := m.Apply(context.Background(), "install", "tool")
+	if e != nil || res.State != "installed" {
+		t.Fatalf("%+v %v", res, e)
+	}
+}

@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -370,6 +371,20 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 			return "", "", "", e
 		}
 	}
+	// Monorepos publish unrelated components (for example an SDK) as "latest".
+	// A recipe's tag_pattern selects the newest release of the product itself.
+	if r.TagPattern != "" {
+		pattern, perr := regexp.Compile(r.TagPattern)
+		if perr != nil {
+			return "", "", "", perr
+		}
+		if !pattern.MatchString(release.Tag) {
+			release, e = m.matchingRelease(ctx, r, pattern)
+			if e != nil {
+				return "", "", "", e
+			}
+		}
+	}
 	name := m.expand(strings.ReplaceAll(r.Asset, "{version}", tagVersion(r, release.Tag)), dir)
 	url, digest := "", ""
 	for _, a := range release.Assets {
@@ -478,4 +493,39 @@ func firstEnv(names ...string) string {
 		}
 	}
 	return ""
+}
+
+// matchingRelease returns the newest published, non-prerelease release whose tag
+// matches pattern.
+func (m *Manager) matchingRelease(ctx context.Context, r Recipe, pattern *regexp.Regexp) (releaseInfo, error) {
+	req, e := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/repos/"+r.Repository+"/releases?per_page=50", nil)
+	if e != nil {
+		return releaseInfo{}, e
+	}
+	req.Header.Set("User-Agent", "lminstall")
+	if token := firstEnv("GITHUB_TOKEN", "GH_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, e := secureDo(req)
+	if e != nil {
+		return releaseInfo{}, e
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return releaseInfo{}, fmt.Errorf("official release list for %s: %s", r.Repository, resp.Status)
+	}
+	var list []struct {
+		releaseInfo
+		Draft      bool `json:"draft"`
+		Prerelease bool `json:"prerelease"`
+	}
+	if e = json.NewDecoder(resp.Body).Decode(&list); e != nil {
+		return releaseInfo{}, e
+	}
+	for _, candidate := range list {
+		if !candidate.Draft && !candidate.Prerelease && pattern.MatchString(candidate.Tag) {
+			return candidate.releaseInfo, nil
+		}
+	}
+	return releaseInfo{}, fmt.Errorf("no published %s release matches %s", r.Repository, r.TagPattern)
 }

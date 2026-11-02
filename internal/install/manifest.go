@@ -27,6 +27,7 @@ type Recipe struct {
 	ArchiveBinary string            `json:"archive_binary"`
 	TagPrefix     string            `json:"tag_prefix"`
 	Launcher      string            `json:"launcher"`
+	TagPattern    string            `json:"tag_pattern"`
 	Channel       string            `json:"channel"`
 	Package       string            `json:"package"`
 	Python        string            `json:"python"`

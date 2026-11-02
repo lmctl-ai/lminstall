@@ -548,7 +548,8 @@
           "checksums": "SHA256SUMS",
           "bin": "",
           "bin_dir": "",
-          "launcher": "exec"
+          "launcher": "exec",
+          "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
         },
         "darwin": {
           "channel": "release",
@@ -558,7 +559,8 @@
           "checksums": "SHA256SUMS",
           "bin": "",
           "bin_dir": "",
-          "launcher": "exec"
+          "launcher": "exec",
+          "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
         },
         "windows": {
           "channel": "release",
@@ -567,7 +569,8 @@
           "archive_binary": "qwen.cmd",
           "checksums": "SHA256SUMS",
           "bin": "",
-          "bin_dir": ""
+          "bin_dir": "",
+          "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
         }
       },
       "launch_config": {
