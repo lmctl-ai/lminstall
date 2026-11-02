@@ -122,7 +122,7 @@ func (m *Manager) verify(ctx context.Context, p Provider, r Recipe, bin string) 
 }
 
 // Match a complete version token, allowing a conventional v prefix and banner text.
-var versionToken = regexp.MustCompile(`(?:^|[^A-Za-z0-9.])v?([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?)(?:$|[^A-Za-z0-9.+-])`)
+var versionToken = regexp.MustCompile(`(?:^|[^A-Za-z0-9.])v?([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?)(?:$|\.(?:\s|$)|[^A-Za-z0-9.+-])`)
 
 func (m *Manager) verifySelectedVersion(ctx context.Context, p Provider, r Recipe, bin, expected string) error {
 	_, err := m.verifiedVersion(ctx, p, r, bin, expected)

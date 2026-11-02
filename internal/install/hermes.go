@@ -138,10 +138,14 @@ func (m *Manager) hermes(ctx context.Context, p Provider, r Recipe, dir string) 
 	if err != nil {
 		return "", "", "", err
 	}
-	verified, err := m.verifiedVersion(ctx, p, r, bin, tag)
+	// A tag tarball carries no git metadata, so Hermes cannot report the tag as
+	// its version. The source is the exact selected tag; require a working
+	// --version and record the tag with what the executable printed.
+	reported, err := m.verify(ctx, p, r, bin)
 	if err != nil {
 		return "", "", "", err
 	}
+	verified := reported
 	// Reuse the versioned-bundle launcher: only a verified checkout is selected.
 	keep = true
 	return bin, "bin", verified, nil

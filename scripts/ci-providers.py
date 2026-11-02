@@ -32,13 +32,24 @@ target=nodeonly/pathlib.Path(node).name
 if not target.exists():
  try: target.symlink_to(node)
  except OSError: shutil.copy2(node,target)
-for tool in ('npm','git','uv','curl','tar','unzip'):
- for d in (empty,nodeonly): assert shutil.which(tool,path=str(d)) is None,(tool,d)
+# Vendor wrapper scripts need the OS's own shell/sysctl, never an installer.
+if sys.platform=='win32':
+ os_dirs=[os.path.join(os.environ.get('SystemRoot','C:\\Windows'),'System32')]
+else:
+ os_dirs=[]
+ if sys.platform=='darwin': os_dirs=['/usr/sbin','/sbin']
+ sh=shutil.which('sh')
+ for d in (empty,nodeonly):
+  link=d/'sh'
+  if sh and not link.exists(): link.symlink_to(sh)
+check=('npm','git','uv') if sys.platform=='win32' else ('npm','git','uv','curl','tar','unzip')
+for tool in check:
+ for d in (empty,nodeonly): assert shutil.which(tool,path=os.pathsep.join([str(d)]+os_dirs)) is None,(tool,d)
 JS={'gemini','pi','dsh','miniplayer'}
 HERMES={'hermes'}
 def host_path(name):
  if name in HERMES: return None
- return str(nodeonly if name in JS else empty)
+ return os.pathsep.join([str(nodeonly if name in JS else empty)]+os_dirs)
 
 def call(op,name):
  print(json.dumps({'provider':name,'operation':op,'event':'start'}),flush=True)

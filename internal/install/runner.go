@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -48,7 +49,7 @@ func (r ExecRunner) Run(ctx context.Context, args []string, cwd string, env map[
 	}
 	// PowerShell splatting passes literal array elements to Windows npm/provider .cmd shims.
 	// Root paths and package arguments are data in environment JSON, never script text.
-	if runtime.GOOS == "windows" && (strings.EqualFold(filepath.Ext(program), ".cmd") || strings.EqualFold(filepath.Ext(program), ".bat")) {
+	if runtime.GOOS == "windows" && (strings.EqualFold(filepath.Ext(program), ".cmd") || strings.EqualFold(filepath.Ext(program), ".bat")) && !simpleBatchArgs(argv) {
 		b, _ := json.Marshal(argv)
 		merged["LMINSTALL_COMMAND"] = program
 		merged["LMINSTALL_ARGS"] = string(b)
@@ -78,4 +79,17 @@ func (r ExecRunner) Run(ctx context.Context, args []string, cwd string, env map[
 		return out.String(), fmt.Errorf("%s: %w", args[0], e)
 	}
 	return out.String(), nil
+}
+
+// Batch files are run directly (no PowerShell) when every argument is plain
+// data that cmd.exe cannot reinterpret.
+var plainBatchArg = regexp.MustCompile(`^[A-Za-z0-9._=:/-]+$`)
+
+func simpleBatchArgs(argv []string) bool {
+	for _, a := range argv {
+		if !plainBatchArg.MatchString(a) {
+			return false
+		}
+	}
+	return true
 }
