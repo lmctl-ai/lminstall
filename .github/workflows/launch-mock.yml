@@ -17,7 +17,7 @@ env:
 permissions:
   contents: read
 concurrency:
-  group: launch-mock-${{ github.sha }}
+  group: launch-mock-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 jobs:
   launch:

@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -73,7 +74,10 @@ func fakeRegistry(t *testing.T, pkgs map[string]map[string]fakePkg, tags map[str
 	t.Helper()
 	var base string
 	tarballs := map[string][]byte{}
+	var mu sync.Mutex // the client resolves and downloads concurrently
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
 		if b, ok := tarballs[r.URL.Path]; ok {
 			w.Write(b)
 			return

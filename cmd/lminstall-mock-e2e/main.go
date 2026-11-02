@@ -63,7 +63,7 @@ func run() error {
 		}
 		config := filepath.Join(root, "mock-config.json")
 		// toolCalls=false: coding CLIs always declare tools; the oracle needs a plain reply.
-		b, _ = json.Marshal(map[string]any{"text": expected, "toolCalls": false, "apiKey": validKey})
+		b, _ = json.Marshal(map[string]any{"text": expected, "toolCalls": false, "apiKey": validKey, "anthropicBearer": true})
 		os.WriteFile(config, b, 0600)
 		exe, _ := os.Executable()
 		args := []string{"exec", "--builtin", "llm-api", "--config", config, "--audit-log", filepath.Join(root, "audit.jsonl"), "--", exe, "--child", "--provider", *provider, "--lminstall", *tool, "--out", root}

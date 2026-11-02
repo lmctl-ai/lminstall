@@ -17,7 +17,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: oauth-mock-${{ github.sha }}
+  group: oauth-mock-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 jobs:
   # Real vendor CLI, real OAuth device-code login, against lmmock's mocked login
