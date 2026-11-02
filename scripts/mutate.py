@@ -3,6 +3,7 @@
 import pathlib,shutil,subprocess,tempfile
 root=pathlib.Path(__file__).resolve().parents[1]
 cases=[
+ ('native receipt migration','internal/install/manager.go','&& rec.Channel != r.Channel {','&& false {'),
  ('Kimi Windows platform','internal/install/native.go','osName = "win32"','osName = "windows"'),
  ('Hermes availability mirror','internal/install/hermes.go','if !downloadAvailabilityError(e) {','if true {'),
  ('npm working directory','internal/install/manager.go','e = run(a, dir)','e = run(a, "")'),

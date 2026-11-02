@@ -390,3 +390,36 @@ func TestKimiOfficialPlatformKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestChangedNativeMethodDoesNotReuseLegacyReceipt(t *testing.T) {
+	for _, channel := range []string{"kimi", "muse", "hermes"} {
+		t.Run(channel, func(t *testing.T) {
+			m, f := fixture(t)
+			if _, e := m.Apply(context.Background(), "install", "tool"); e != nil {
+				t.Fatal(e)
+			}
+			// A prior method left a valid-looking receipt. Legacy receipts lack channel.
+			path := filepath.Join(m.dir("tool"), "receipt.json")
+			b, e := os.ReadFile(path)
+			if e != nil {
+				t.Fatal(e)
+			}
+			var record map[string]any
+			json.Unmarshal(b, &record)
+			delete(record, "channel")
+			b, _ = json.Marshal(record)
+			os.WriteFile(path, b, 0600)
+			r := m.Manifest.Providers[0].Recipes["*"]
+			r.Channel = channel
+			m.Manifest.Providers[0].Recipes["*"] = r
+			before := len(f.calls)
+			status, e := m.Status(context.Background(), "tool")
+			if e != nil || status.State != "incomplete" || !strings.Contains(status.Reason, "method") {
+				t.Fatalf("legacy installation misreported: %+v %v", status, e)
+			}
+			if len(f.calls) != before {
+				t.Fatal("legacy runtime executed before method migration")
+			}
+		})
+	}
+}

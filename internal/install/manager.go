@@ -34,6 +34,7 @@ type Result struct {
 	Reason   string `json:"reason,omitempty"`
 }
 type receipt struct {
+	Channel  string `json:"channel,omitempty"`
 	Provider string `json:"provider"`
 	Bin      string `json:"bin"`
 	BinDir   string `json:"bin_dir"`
@@ -144,6 +145,11 @@ func (m *Manager) Status(ctx context.Context, id string) (Result, error) {
 	if e != nil || json.Unmarshal(b, &rec) != nil || rec.Provider != id {
 		res.State = "incomplete"
 		res.Reason = "installation has not passed --version; run lminstall install " + id
+		return res, nil
+	}
+	if (r.Channel == "kimi" || r.Channel == "muse" || r.Channel == "hermes") && rec.Channel != r.Channel {
+		res.State = "incomplete"
+		res.Reason = "installation method changed; run lminstall install " + id + " to use the official native method"
 		return res, nil
 	}
 	v, e := m.verify(ctx, p, r, rec.Bin)
@@ -262,7 +268,7 @@ func (m *Manager) Apply(ctx context.Context, op, id string) (Result, error) {
 			return res, e
 		}
 	}
-	rec := receipt{id, bin, bindir, v}
+	rec := receipt{Provider: id, Bin: bin, BinDir: bindir, Version: v, Channel: r.Channel}
 	b, _ := json.MarshalIndent(rec, "", "  ")
 	if e = os.WriteFile(filepath.Join(dir, "receipt.json"), b, 0600); e != nil {
 		return res, e

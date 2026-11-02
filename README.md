@@ -31,6 +31,11 @@ If Node/npm is missing these npm methods fail with a prerequisite error. Native
 Kimi, Antigravity and Muse do not need Node/npm/uv. Hermes bootstraps its own pinned
 uv, Python and PM-managed Node/runtime tools, even when none is on PATH.
 
+Existing Kimi/Muse/Hermes receipts from older methods are marked incomplete
+until `install` migrates them once. A receipt records its channel before later
+installs reuse it; an old script or npm command cannot masquerade as the native
+method. Refresh PATH from the returned bin_dir after a method change.
+
 Install is idempotent only after the managed binary passes `--version`; a broken
 or partial install is repaired on the next install. Upgrade asks the same official
 channel for its newest version, then verifies it. Stop a provider before upgrading
