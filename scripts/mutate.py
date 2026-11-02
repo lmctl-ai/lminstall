@@ -3,7 +3,7 @@
 import pathlib,shutil,subprocess,tempfile
 root=pathlib.Path(__file__).resolve().parents[1]
 cases=[
- ('Kimi archive binary hash','internal/install/native.go','if !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), checksum) {','if false {'),
+ ('Kimi archive binary hash','internal/install/native.go','if !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), checksum) {','if false && !strings.EqualFold(hex.EncodeToString(h.Sum(nil)), checksum) {'),
  ('native receipt migration','internal/install/manager.go','&& rec.Channel != r.Channel {','&& false {'),
  ('Kimi Windows platform','internal/install/native.go','osName = "win32"','osName = "windows"'),
  ('Hermes availability mirror','internal/install/hermes.go','if !downloadAvailabilityError(e) {','if true {'),
