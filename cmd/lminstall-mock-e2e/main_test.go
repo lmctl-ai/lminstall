@@ -24,3 +24,16 @@ func TestStructuredReplyAdapters(t *testing.T) {
 		}
 	}
 }
+
+func TestInspectionEvidenceNeverPersistsUpstreamCredential(t *testing.T) {
+	b, e := inspectionEvidence([]byte(`{"method":"POST","url":"/v1/messages","body":"{hello}","headers":{"authorization":"Bearer SYNTHETIC-SECRET-138","x-api-key":"SYNTHETIC-SECRET-138"}}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if strings.Contains(string(b), "SYNTHETIC-SECRET-138") || strings.Contains(string(b), "headers") {
+		t.Fatal("upstream credential persisted by evidence collector")
+	}
+	if !strings.Contains(string(b), "/v1/messages") || !strings.Contains(string(b), "{hello}") {
+		t.Fatal("request oracle evidence lost")
+	}
+}

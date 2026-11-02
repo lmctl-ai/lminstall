@@ -142,7 +142,11 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	os.WriteFile(filepath.Join(root, "request.json"), b, 0600)
+	evidence, err := inspectionEvidence(b)
+	if err != nil {
+		return err
+	}
+	os.WriteFile(filepath.Join(root, "request.json"), evidence, 0600)
 	var observed struct{ Method, URL, Body string }
 	if e = json.Unmarshal(b, &observed); e != nil {
 		return e
@@ -244,4 +248,18 @@ func oracle(observed, wanted string) error {
 		return errors.New("wrong_reply")
 	}
 	return nil
+}
+
+func inspectionEvidence(b []byte) ([]byte, error) {
+	// The mock inspect route sees upstream authentication. Retain only fields
+	// needed for the route/model/prompt oracle; never persist its headers.
+	var evidence struct {
+		Method string `json:"method"`
+		URL    string `json:"url"`
+		Body   string `json:"body"`
+	}
+	if e := json.Unmarshal(b, &evidence); e != nil {
+		return nil, e
+	}
+	return json.Marshal(evidence)
 }
