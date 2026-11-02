@@ -264,16 +264,20 @@ explicitly refuse Ollama Cloud. Unknown dialect qualification belongs to lminspe
 OpenRouter and DeepSeek live routes are not advertised as supported backends.
 Gemini/Antigravity need model IDs their clients recognize, even with a mock server.
 Claude binds the requested model to primary, default tier and subagent slots.
+Credentials with surrounding whitespace or control characters are rejected before
+starting a child or bridge; they are never silently trimmed. Provider exit codes
+and separate stdout/stderr are passed through without an added failure diagnostic.
 Origin-shaped adapters reject a `/v1` suffix; versioned adapters accept an origin
-or a single `/v1` and produce one `/v1`. Plans describe these bindings explicitly.
+or a single `/v1` and produce one `/v1`. Other paths (including repeated `/v1`)
+are rejected before creating or changing a profile. Plans describe these bindings explicitly.
 
 After the installation Action, another repository can use the configure step:
 
 ```yaml
-- uses: lmctl-ai/lminstall@main # pin the same reviewed commit for both steps
+- uses: lmctl-ai/lminstall@5054af1f6a10198b362ea51b3502504c17915f65 # reviewed immutable install/configure pair
   with:
     providers: claude
-- uses: lmctl-ai/lminstall/configure@main
+- uses: lmctl-ai/lminstall/configure@5054af1f6a10198b362ea51b3502504c17915f65
   with:
     provider: claude
     backend: ollama-cloud

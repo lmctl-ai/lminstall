@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -71,6 +73,10 @@ func run() error {
 		return e
 	}
 	cases := []mutation{
+		{"padded credential accepted by run", "internal/launch/run.go", "if !validCredential(credential) {", "if !safeValue(credential) {"},
+		{"padded credential accepted by bridge", "internal/launch/bridge.go", "if !validCredential(credential) {", "if !safeValue(credential) {"},
+		{"unsupported base path accepted", "internal/launch/profile.go", `if u.Path != "" {`, `if false {`},
+		{"provider exit gains launcher diagnostic", "internal/launch/run.go", "return code, nil", `return code, errors.New("provider_run_failed")`},
 		{"credential persisted", "internal/launch/profile.go", "CredentialEnv: o.CredentialEnv", "CredentialEnv: os.Getenv(o.CredentialEnv)"},
 		{"duplicated v1", "internal/launch/profile.go", `strings.TrimRight(base, "/") + "/v1"`, `strings.TrimRight(base, "/") + "/v1/v1"`},
 		{"adapter files omitted", "internal/launch/profile.go", "for _, f := range p.Spec.Files {", "for _, f := range []install.LaunchFile{} {"},
@@ -85,6 +91,54 @@ func run() error {
 		{"response headers unfiltered", "internal/launch/bridge.go", "sanitizeMetadata(resp.Header, patterns)", "sanitizeMetadata(resp.Header, nil)"},
 		{"response trailers unfiltered", "internal/launch/body.go", "b.afterEOF()", "if false { b.afterEOF() }"},
 		{"foreign gateway allowed", "internal/launch/cleanup.go", "got != expected", "false && got != expected"},
+	}
+	// Delete each argv element independently in every supported backend. This
+	// includes isolation switches, their values and positional subcommands.
+	catalog, e := os.ReadFile(filepath.Join(copy, "internal/install/providers.json"))
+	if e != nil {
+		return e
+	}
+	var document map[string]any
+	if e = json.Unmarshal(catalog, &document); e != nil {
+		return e
+	}
+	for pi, raw := range document["providers"].([]any) {
+		provider := raw.(map[string]any)
+		config, ok := provider["launch_config"].(map[string]any)
+		if !ok {
+			continue
+		}
+		backends, ok := config["backends"].(map[string]any)
+		if !ok {
+			continue
+		}
+		names := []string{}
+		for name := range backends {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, backend := range names {
+			spec := backends[backend].(map[string]any)
+			if spec["supported"] != true {
+				continue
+			}
+			argv, _ := spec["argv_prefix"].([]any)
+			for ai, arg := range argv {
+				var changed map[string]any
+				if e = json.Unmarshal(catalog, &changed); e != nil {
+					return e
+				}
+				cs := changed["providers"].([]any)[pi].(map[string]any)["launch_config"].(map[string]any)["backends"].(map[string]any)[backend].(map[string]any)
+				args := append([]any{}, argv[:ai]...)
+				args = append(args, argv[ai+1:]...)
+				cs["argv_prefix"] = args
+				data, err := json.MarshalIndent(changed, "", "  ")
+				if err != nil {
+					return err
+				}
+				cases = append(cases, mutation{fmt.Sprintf("required argv %s/%s[%d] %q", provider["id"], backend, ai, arg), "internal/install/providers.json", string(catalog), string(data)})
+			}
+		}
 	}
 	originals := map[string]string{}
 	for _, c := range cases {
