@@ -3,11 +3,26 @@ description: Build the static installer and install coding CLIs through their of
 inputs:
   providers:
     description: Space-separated provider IDs (for example claude codex kimi).
-    required: true
+    required: false
   root:
     description: Owned provider prefix; defaults to the runner's temporary directory.
     required: false
+  lmctl-release:
+    description: Install aggregate lmctl/lmscript from private mono (latest or exact tag).
+    required: false
+  lmctl-candidate:
+    description: Trusted exact-asset candidate JSON for release-gating jobs only.
+    required: false
+  release-token:
+    description: Token with Contents read on private lmctlhq/lmctl-mono; defaults to this repository token.
+    required: false
 outputs:
+  lmctl-package-root:
+    description: Complete installed aggregate package tree.
+    value: ${{ steps.lmctl.outputs.package-root }}
+  lmctl-version:
+    description: Verified aggregate version.
+    value: ${{ steps.lmctl.outputs.version }}
   executable:
     description: Absolute path of the built lminstall executable.
     value: ${{ steps.install.outputs.executable }}
@@ -27,6 +42,8 @@ runs:
         ACTION_HOME: ${{ github.action_path }}
         PROVIDERS: ${{ inputs.providers }}
         INSTALL_ROOT: ${{ inputs.root }}
+        LMCTL_RELEASE: ${{ inputs.lmctl-release }}
+        LMCTL_CANDIDATE: ${{ inputs.lmctl-candidate }}
         CGO_ENABLED: '0'
         GITHUB_TOKEN: ${{ github.token }}   # raises the release-API quota only; never sent to downloads
       run: |
@@ -42,9 +59,30 @@ runs:
         python - <<'PY'
         import os,subprocess,uuid
         providers=os.environ['PROVIDERS'].split()
-        if not providers: raise SystemExit('providers input must name at least one provider')
-        subprocess.run([os.environ['LMINSTALL_ACTION_TOOL'],'install',*providers,'--root',os.environ['LMINSTALL_ACTION_ROOT']],check=True)
+        if not providers and not (os.environ['LMCTL_RELEASE'] or os.environ['LMCTL_CANDIDATE']): raise SystemExit('name providers or lmctl-release')
+        if providers: subprocess.run([os.environ['LMINSTALL_ACTION_TOOL'],'install',*providers,'--root',os.environ['LMINSTALL_ACTION_ROOT']],check=True)
         delimiter=uuid.uuid4().hex
         with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as env_file:
             env_file.write('LMINSTALL_ROOT<<'+delimiter+'\n'+os.environ['LMINSTALL_ACTION_ROOT']+'\n'+delimiter+'\n')
+        PY
+
+    - id: lmctl
+      if: inputs.lmctl-release != '' || inputs.lmctl-candidate != ''
+      shell: bash
+      env:
+        LMCTL_RELEASE: ${{ inputs.lmctl-release || 'latest' }}
+        LMCTL_CANDIDATE: ${{ inputs.lmctl-candidate }}
+        LMCTL_RELEASE_TOKEN: ${{ inputs.release-token || github.token }}
+        TOOL: ${{ steps.install.outputs.executable }}
+      run: |
+        python - <<'PY'
+        import json,os,subprocess
+        args=[os.environ['TOOL'],'lmctl','--root',os.environ['LMINSTALL_ROOT'],'--release',os.environ['LMCTL_RELEASE']]
+        if os.environ['LMCTL_CANDIDATE']: args+=['--candidate',os.environ['LMCTL_CANDIDATE']]
+        r=json.loads(subprocess.check_output(args,text=True))
+        with open(os.environ['GITHUB_PATH'],'a',encoding='utf-8') as f: f.write(r['binDir']+'\n')
+        with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as f: f.write('package-root='+r['packageRoot']+'\nversion='+r['version']+'\n')
+        with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
+            f.write('LMCTL_PACKAGE_ROOT='+r['packageRoot']+'\nLMSCRIPT_PACKAGE_ROOT='+r['packageRoot']+'\nLMSCRIPT_BIN='+os.path.join(r['packageRoot'],'bin','lmscript')+'\n')
+        print('Installed verified lmctl '+r['version'])
         PY

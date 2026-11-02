@@ -20,6 +20,9 @@ const usage = "lminstall configure PROVIDER --backend mock|ollama-cloud|ollama-l
 
 func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
+	if len(args) > 0 && args[0] == "lmctl" {
+		return lmctlCLI(args[1:])
+	}
 	if len(args) > 0 && (args[0] == "configure" || args[0] == "run") {
 		return launchCLI(args)
 	}

@@ -329,3 +329,21 @@ CI remains a separate full-catalog lifecycle check. Offline launch controls:
 Native updater artifacts are verified at a private staging pathname before replacing the installed executable. A rejected candidate leaves the working binary and receipt in place. Archive extraction uses a directory-root handle and validates the gzip trailer; a pre-existing symlink cannot redirect a file outside that root. Windows Hermes PortableGit uses the official SHA-addressed mirror only for availability failures, with the same digest.
 
 Hermes source upgrades build in a new owned checkout and verify the selected stable version before selecting its launcher, just like a versioned release bundle. A failed completion leaves the prior checkout and receipt usable. `bin_dir` is the stable owned `bin` directory; upgrading a legacy source-path install may require refreshing PATH from that reported value. Earlier verified checkouts remain owned until uninstall so a failed candidate cannot mutate them. Native artifact verification output is reused when writing the receipt; the installer does not execute the artifact again after replacing the old pathname.
+
+## Aggregate lmctl and lmscript from GitHub
+
+Set `lmctl-release: latest` (or an exact `vBASE-github.RUN.ATTEMPT` tag) on this
+Action; `providers` may be omitted. Both launchers and the complete package tree
+are installed under the owned `root`, using Node 24 from setup-node. The Action
+exports `LMCTL_PACKAGE_ROOT`, `LMSCRIPT_PACKAGE_ROOT`, `LMSCRIPT_BIN` and verified
+package-root/version outputs. It never installs lmctl through a registry.
+
+The source is private `lmctlhq/lmctl-mono`. A workflow in that repository can use
+its own token. Other lmctl-ai/lmctlhq repositories must pass `release-token` with
+Contents:read access to mono (their automatic repository token cannot cross that
+boundary). No token is saved in receipts or sent to asset redirect hosts. Trusted
+release integration can also pass `lmctl-candidate`, a manifest of exact asset IDs
+and hashes, to install an unpublished candidate; do not accept that path from an
+untrusted pull request. Outside Actions, provision Node >=24.15 and run
+`lminstall lmctl --root ABS --release latest`, with `LMCTL_RELEASE_TOKEN` in the
+environment. Repeat installs verify the recorded tree; changed files are refused.
