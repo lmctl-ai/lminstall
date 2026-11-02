@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,61 +38,49 @@ func (m *Manager) updateManifest(ctx context.Context, p Provider, r Recipe, dir 
 	if e != nil {
 		return "", "", e
 	}
+	// Keep the installed pathname untouched until the downloaded executable has
+	// passed both integrity and selected-version validation.
+	stage, e := os.MkdirTemp(dir, "native-stage-")
+	if e != nil {
+		return "", "", e
+	}
+	defer os.RemoveAll(stage)
+	candidate := filepath.Join(stage, filepath.Base(dest))
 	if strings.Contains(meta.URL, ".tar.gz") {
-		archive := filepath.Join(dir, "native.tar.gz")
+		archive := filepath.Join(stage, "native.tar.gz")
 		if e = download(ctx, meta.URL, archive, "sha512:"+meta.SHA512); e != nil {
 			return "", "", e
 		}
-		defer os.Remove(archive)
-		stage, e := os.MkdirTemp(dir, "native-")
-		if e != nil {
+		extracted := filepath.Join(stage, "extracted")
+		if e = extractArchive(archive, extracted); e != nil {
 			return "", "", e
 		}
-		defer os.RemoveAll(stage)
-		if e = extractArchive(archive, stage); e != nil {
-			return "", "", e
+		source, err := relative(extracted, r.ArchiveBinary)
+		if err != nil {
+			return "", "", err
 		}
-		source, e := relative(stage, r.ArchiveBinary)
-		if e != nil {
-			return "", "", e
-		}
-		in, e := os.Open(source)
-		if e != nil {
-			return "", "", e
-		}
-		defer in.Close()
-		if e = os.MkdirAll(filepath.Dir(dest), 0700); e != nil {
-			return "", "", e
-		}
-		out, e := os.CreateTemp(filepath.Dir(dest), ".native-")
-		if e != nil {
-			return "", "", e
-		}
-		tmp := out.Name()
-		defer os.Remove(tmp)
-		_, e = io.Copy(out, in)
-		ce := out.Close()
-		if e != nil {
-			return "", "", e
-		}
-		if ce != nil {
-			return "", "", ce
-		}
-		if e = os.Chmod(tmp, 0755); e != nil {
-			return "", "", e
-		}
-		if e = os.Rename(tmp, dest); e != nil {
+		if e = copyExecutable(source, candidate); e != nil {
 			return "", "", e
 		}
 	} else {
-		if e = download(ctx, meta.URL, dest, "sha512:"+meta.SHA512); e != nil {
+		if e = download(ctx, meta.URL, candidate, "sha512:"+meta.SHA512); e != nil {
 			return "", "", e
 		}
-		if e = os.Chmod(dest, 0755); e != nil {
+		if e = os.Chmod(candidate, 0755); e != nil {
 			return "", "", e
 		}
 	}
-	if e = m.verifySelectedVersion(ctx, p, r, bin, meta.Version); e != nil {
+	stagedBin, e := filepath.Rel(dir, candidate)
+	if e != nil {
+		return "", "", e
+	}
+	if e = m.verifySelectedVersion(ctx, p, r, stagedBin, meta.Version); e != nil {
+		return "", "", e
+	}
+	if e = os.MkdirAll(filepath.Dir(dest), 0700); e != nil {
+		return "", "", e
+	}
+	if e = os.Rename(candidate, dest); e != nil {
 		return "", "", e
 	}
 	return bin, m.expand(r.BinDir, dir), nil

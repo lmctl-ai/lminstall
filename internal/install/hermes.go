@@ -184,14 +184,9 @@ func (m *Manager) hermesUV(ctx context.Context, dir, target string, tool pinnedT
 		return "", e
 	}
 	archive := filepath.Join(dir, filepath.Base(u.Path))
-	if e = download(ctx, asset.URL, archive, "sha256:"+asset.SHA256); e != nil {
-		if !downloadAvailabilityError(e) {
-			return "", e
-		}
-		mirror := "https://hermes-assets.nousresearch.com/upstream/sha256/" + strings.ToLower(asset.SHA256)
-		if e = download(ctx, mirror, archive, "sha256:"+asset.SHA256); e != nil {
-			return "", e
-		}
+	mirror := "https://hermes-assets.nousresearch.com/upstream/sha256/" + strings.ToLower(asset.SHA256)
+	if e = downloadMirrored(ctx, asset.URL, mirror, archive, "sha256:"+asset.SHA256); e != nil {
+		return "", e
 	}
 	defer os.Remove(archive)
 	stage, e := os.MkdirTemp(dir, "uv-stage-")
@@ -301,7 +296,7 @@ func (m *Manager) hermesGit(ctx context.Context, dir string, env map[string]stri
 	}
 	name := "PortableGit-2.53.0.3-" + arch + ".7z.exe"
 	archive := filepath.Join(dir, name)
-	if e := download(ctx, "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.3/"+name, archive, "sha256:"+sha); e != nil {
+	if e := downloadMirrored(ctx, "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.3/"+name, "https://hermes-assets.nousresearch.com/upstream/sha256/"+sha, archive, "sha256:"+sha); e != nil {
 		return "", e
 	}
 	defer os.Remove(archive)

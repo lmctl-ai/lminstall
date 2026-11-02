@@ -292,3 +292,4 @@ with real tools on Ubuntu, macOS and Windows, a checksummed lmmock release and a
 wrong-expectation failing control. Live keys never enter this matrix. Installation
 CI remains a separate full-catalog lifecycle check. Offline launch controls:
 `python3 scripts/mutate-launch.py`.
+Native updater artifacts are verified at a private staging pathname before replacing the installed executable. A rejected candidate leaves the working binary and receipt in place. Archive extraction uses a directory-root handle and validates the gzip trailer; a pre-existing symlink cannot redirect a file outside that root. Windows Hermes PortableGit uses the official SHA-addressed mirror only for availability failures, with the same digest.

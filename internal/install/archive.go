@@ -107,15 +107,34 @@ func extractArchive(archive, dest string) error {
 	if e := os.MkdirAll(dest, 0700); e != nil {
 		return e
 	}
+	root, err := os.OpenRoot(dest)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	mkdir := func(name string) error {
+		part := ""
+		for _, segment := range strings.Split(filepath.Clean(name), string(filepath.Separator)) {
+			part = filepath.Join(part, segment)
+			if err := root.Mkdir(part, 0755); err != nil && !os.IsExist(err) {
+				return err
+			}
+		}
+		return nil
+	}
 	write := func(name string, mode os.FileMode, reader io.Reader) error {
 		p, e := archivePath(dest, name)
 		if e != nil {
 			return e
 		}
-		if e = os.MkdirAll(filepath.Dir(p), 0755); e != nil {
+		rel, e := filepath.Rel(dest, p)
+		if e != nil {
 			return e
 		}
-		f, e := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode.Perm()&0755)
+		if e = mkdir(filepath.Dir(rel)); e != nil {
+			return e
+		}
+		f, e := root.OpenFile(rel, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode.Perm()&0755)
 		if e != nil {
 			return e
 		}
@@ -138,7 +157,11 @@ func extractArchive(archive, dest string) error {
 				return e
 			}
 			if f.FileInfo().IsDir() {
-				if e = os.MkdirAll(p, 0755); e != nil {
+				rel, err := filepath.Rel(dest, p)
+				if err != nil {
+					return err
+				}
+				if e = mkdir(rel); e != nil {
 					return e
 				}
 				continue
@@ -172,7 +195,10 @@ func extractArchive(archive, dest string) error {
 	for {
 		h, e := tr.Next()
 		if e == io.EOF {
-			return nil
+			// tar EOF precedes the gzip checksum/length trailer. Drain it before
+			// accepting the container, including concatenated gzip members.
+			_, e = io.Copy(io.Discard, gz)
+			return e
 		}
 		if e != nil {
 			return e
@@ -183,7 +209,11 @@ func extractArchive(archive, dest string) error {
 		}
 		switch h.Typeflag {
 		case tar.TypeDir:
-			if e = os.MkdirAll(p, 0755); e != nil {
+			rel, err := filepath.Rel(dest, p)
+			if err != nil {
+				return err
+			}
+			if e = mkdir(rel); e != nil {
 				return e
 			}
 		case tar.TypeReg, tar.TypeRegA:
