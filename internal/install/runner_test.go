@@ -220,3 +220,13 @@ func TestWindowsOwnedImageRefusesUntilProviderExits(t *testing.T) {
 		t.Fatalf("owned namespace remains: %v", e)
 	}
 }
+
+func TestExecLauncherForwardsToRelativePayload(t *testing.T) {
+	text, e := execLauncher(filepath.Join("payload-1", "bin", "tool.exe"))
+	if e != nil || text != "#!/bin/sh\nexec \"$(dirname \"$0\")/../payload-1/bin/tool.exe\" \"$@\"\n" {
+		t.Fatalf("%q %v", text, e)
+	}
+	if _, e = execLauncher("bad\"; rm -rf x"); e == nil {
+		t.Fatal("unsafe path accepted")
+	}
+}

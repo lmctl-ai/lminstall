@@ -28,6 +28,7 @@ runs:
         PROVIDERS: ${{ inputs.providers }}
         INSTALL_ROOT: ${{ inputs.root }}
         CGO_ENABLED: '0'
+        GITHUB_TOKEN: ${{ github.token }}   # raises the release-API quota only; never sent to downloads
       run: |
         tool_dir="$(echo "$RUNNER_TEMP" | tr '\\' '/')/lminstall-app"
         mkdir -p "$tool_dir"

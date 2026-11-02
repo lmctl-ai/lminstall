@@ -28,6 +28,7 @@ jobs:
     env:
       CGO_ENABLED: '0'
       CI: '1'
+      GITHUB_TOKEN: ${{ github.token }}   # release-API quota only
     defaults:
       run:
         shell: bash

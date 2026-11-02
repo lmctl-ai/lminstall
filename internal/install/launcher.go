@@ -59,7 +59,19 @@ func (m *Manager) publishLauncher(p Provider, bin string) error {
 			return e
 		}
 	}
-	return os.Rename(tmp, filepath.Join(stable, name))
+	if e = os.Rename(tmp, filepath.Join(stable, name)); e != nil {
+		return e
+	}
+	if runtime.GOOS == "windows" {
+		// Git Bash and other POSIX shells on Windows do not resolve .cmd files:
+		// publish the extension-less forwarding script npm also used to write.
+		text, e := execLauncher(bin)
+		if e != nil {
+			return e
+		}
+		return os.WriteFile(filepath.Join(stable, p.Binary), []byte(text), 0o755)
+	}
+	return nil
 }
 
 // Validate the PATH entry as well as the versioned payload before reusing it.
@@ -92,6 +104,7 @@ func (m *Manager) checkLauncher(p Provider, bin string) error {
 // so a symlink would resolve to the wrong root. This wrapper only forwards to the
 // verified versioned payload; it installs nothing.
 func execLauncher(bin string) (string, error) {
+	bin = filepath.ToSlash(bin)
 	if strings.ContainsAny(bin, "\r\n\"'$`\\") {
 		return "", fmt.Errorf("release path cannot be represented by a launcher")
 	}
