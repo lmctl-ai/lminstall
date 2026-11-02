@@ -86,6 +86,11 @@ All metadata, script and artifact requests require HTTPS through every redirect.
 | [muse](https://dev.meta.ai/lp/muse-code) | Native muse-stable channel/release manifest, SHA-256 and exact artifact size; restricted downloads fail without authentication |
 | claudemock | Unavailable as a standalone CLI: it is an lmctl fixture. Enable LMCTL_ENABLE_MOCK_PROVIDER=1 in lmctl. No fake installation/version is substituted. |
 
+Gemini CLI's current vendor guide still supports npm installation, but describes
+it as an enterprise Code Assist workflow. Free individual/Google AI plan access
+moved to Antigravity; installation and --version do not certify account/model
+access. The two commands remain separate provider entries.
+
 The application is static, not the providers' runtimes. Node 24/npm are
 provisioned by the composite Action (Node/npm only; Hermes owns uv). A standalone user must supply the prerequisite
 for their chosen channel; missing commands fail with an actionable prerequisite
