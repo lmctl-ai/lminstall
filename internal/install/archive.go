@@ -7,11 +7,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -57,7 +60,7 @@ func download(ctx context.Context, url, dest, digest string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("GET %s: %s", url, resp.Status)
+		return &downloadStatusError{URL: url, Status: resp.Status, Code: resp.StatusCode}
 	}
 	if e = os.MkdirAll(filepath.Dir(dest), 0700); e != nil {
 		return e
@@ -398,4 +401,26 @@ func (m *Manager) release(ctx context.Context, p Provider, r Recipe, dir string)
 		return "", "", e
 	}
 	return rel, "bin", nil
+}
+
+// Mirrors may replace an unavailable transport, never failed integrity, local
+// filesystem permissions, TLS verification or an HTTPS policy rejection.
+type downloadStatusError struct {
+	URL, Status string
+	Code        int
+}
+
+func (e *downloadStatusError) Error() string { return fmt.Sprintf("GET %s: %s", e.URL, e.Status) }
+func downloadAvailabilityError(err error) bool {
+	var status *downloadStatusError
+	if errors.As(err, &status) {
+		return true
+	}
+	var certificate *tls.CertificateVerificationError
+	if errors.As(err, &certificate) {
+		return false
+	}
+	var dns *net.DNSError
+	var op *net.OpError
+	return errors.As(err, &dns) || errors.As(err, &op) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }

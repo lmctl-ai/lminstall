@@ -168,6 +168,8 @@ launcher against an optional HTTP hash header, then its launcher requires a
 SHA-256 and exact size for the native payload; Go skips the launcher entirely
 and enforces both payload checks. Antigravity uses the official updater SHA-512.
 Hermes's uv and Windows Git bootstrap archives have the upstream SHA-256 pins;
+uv can use the vendor's content-addressed mirror on availability failures, while
+checksum/TLS/policy failures remain errors;
 its PM verifies tool hashes and the uv.lock dependency graph. No installer-script
 hash mechanism remains. HTTPS is required for requests and redirect hops.
 

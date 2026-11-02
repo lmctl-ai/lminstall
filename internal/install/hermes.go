@@ -185,7 +185,13 @@ func (m *Manager) hermesUV(ctx context.Context, dir, target string, tool pinnedT
 	}
 	archive := filepath.Join(dir, filepath.Base(u.Path))
 	if e = download(ctx, asset.URL, archive, "sha256:"+asset.SHA256); e != nil {
-		return "", e
+		if !downloadAvailabilityError(e) {
+			return "", e
+		}
+		mirror := "https://hermes-assets.nousresearch.com/upstream/sha256/" + strings.ToLower(asset.SHA256)
+		if e = download(ctx, mirror, archive, "sha256:"+asset.SHA256); e != nil {
+			return "", e
+		}
 	}
 	defer os.Remove(archive)
 	stage, e := os.MkdirTemp(dir, "uv-stage-")

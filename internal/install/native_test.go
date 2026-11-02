@@ -281,3 +281,77 @@ func TestMuseWindowsVerifiesExecutableSuffix(t *testing.T) {
 		}
 	}
 }
+
+func TestHermesBootstrapMirrorKeepsIntegrityPolicy(t *testing.T) {
+	for _, mode := range []string{"unavailable", "primary-corrupt", "mirror-corrupt"} {
+		t.Run(mode, func(t *testing.T) {
+			data := zipBytes(t, "uv", []byte("verified uv"))
+			hash := sha256.Sum256(data)
+			sum := hex.EncodeToString(hash[:])
+			hits := 0
+			s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/primary" {
+					if mode == "primary-corrupt" {
+						w.Write([]byte("corrupt"))
+					} else {
+						w.WriteHeader(403)
+					}
+					return
+				}
+				hits++
+				if mode == "mirror-corrupt" {
+					w.Write([]byte("corrupt mirror"))
+				} else {
+					w.Write(data)
+				}
+			}))
+			defer s.Close()
+			old := client
+			client = s.Client()
+			tr := client.Transport
+			client.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+				c := r.Clone(r.Context())
+				u := *c.URL
+				u.Host = strings.TrimPrefix(s.URL, "https://")
+				c.URL = &u
+				return tr.RoundTrip(c)
+			})
+			defer func() { client = old }()
+			var tool pinnedTool
+			json.Unmarshal([]byte(fmt.Sprintf(`{"version":"0.13.5","artifacts":{"linux-x64":{"url":%q,"sha256":%q}}}`, s.URL+"/primary.tar.gz", sum)), &tool)
+			asset := tool.Artifacts["linux-x64"]
+			asset.URL = s.URL + "/primary.zip"
+			tool.Artifacts["linux-x64"] = asset
+			prev := client.Transport
+			client.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+				c := r.Clone(r.Context())
+				u := *c.URL
+				if u.Path == "/primary.zip" {
+					u.Path = "/primary"
+				}
+				c.URL = &u
+				return prev.RoundTrip(c)
+			})
+			m, _ := fixture(t)
+			dir := m.dir("tool")
+			os.MkdirAll(dir, 0700)
+			_, err := m.hermesUV(context.Background(), dir, "linux-x64", tool)
+			if mode == "unavailable" {
+				if err != nil || hits != 1 {
+					t.Fatalf("mirror not used: %v hits=%d", err, hits)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("accepted corrupt bootstrap")
+				}
+				want := 1
+				if mode == "primary-corrupt" {
+					want = 0
+				}
+				if hits != want {
+					t.Fatalf("integrity fallback policy: %v hits=%d want=%d", err, hits, want)
+				}
+			}
+		})
+	}
+}
