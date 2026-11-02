@@ -72,6 +72,9 @@ func canonicalBase(raw, backend, shape string) (string, error) {
 	if shape == "origin" && strings.HasSuffix(u.Path, "/v1") {
 		return "", errors.New("origin_base_must_not_end_in_v1")
 	}
+	if u.Path != "" {
+		return "", errors.New("unsupported_base_url_path")
+	}
 	u.RawPath = ""
 	return strings.TrimRight(u.String(), "/"), nil
 }

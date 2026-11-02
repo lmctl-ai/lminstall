@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -34,7 +35,8 @@ func TestLaunchHelperProcess(t *testing.T) {
 	if os.Getenv("WP138_RUNTIME_SECRET") != "" {
 		fmt.Print("inherited credential: " + os.Getenv("WP138_RUNTIME_SECRET"))
 	}
-	os.Exit(0)
+	code, _ := strconv.Atoi(os.Getenv("HELPER_EXIT"))
+	os.Exit(code)
 }
 
 type fileObserver struct {
@@ -56,7 +58,9 @@ func (o *fileObserver) Write(b []byte) (int, error) {
 	o.out.Write(b)
 	return len(b), nil
 }
-func TestRuntimeCredentialNeverReachesChildDiskOrOutput(t *testing.T) {
+func TestRuntimeCredentialNeverReachesChildDiskOrOutput(t *testing.T) { testRuntimeStreams(t, 0) }
+func TestProviderExitPreservesStreamsAndCleanup(t *testing.T)         { testRuntimeStreams(t, 17) }
+func testRuntimeStreams(t *testing.T, exit int) {
 	key := "SYNTHETIC-WP138-DO-NOT-PERSIST+/&<>"
 	t.Setenv("WP138_RUNTIME_SECRET", key)
 	called := false
@@ -91,7 +95,7 @@ func TestRuntimeCredentialNeverReachesChildDiskOrOutput(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, ".lminstall-owner"), []byte("claude\n"), 0600)
 	receipt, _ := json.Marshal(map[string]string{"provider": "claude", "bin": "bin/" + name, "bin_dir": "bin", "version": "1.0.0"})
 	os.WriteFile(filepath.Join(dir, "receipt.json"), receipt, 0600)
-	spec := install.LaunchSpec{Supported: true, Protocol: "openai-chat", BaseShape: "v1", Adapter: "claude", AdapterVersion: 1, Environment: map[string]string{"LMINSTALL_HELPER": "launch", "HELPER_BASE": "{base}", "HELPER_KEY": "{credential}"}, ArgvPrefix: []string{"-test.run=^TestLaunchHelperProcess$", "--"}, Headers: map[string]string{"Authorization": "Bearer {credential}"}}
+	spec := install.LaunchSpec{Supported: true, Protocol: "openai-chat", BaseShape: "v1", Adapter: "claude", AdapterVersion: 1, Environment: map[string]string{"LMINSTALL_HELPER": "launch", "HELPER_EXIT": strconv.Itoa(exit), "HELPER_BASE": "{base}", "HELPER_KEY": "{credential}"}, ArgvPrefix: []string{"-test.run=^TestLaunchHelperProcess$", "--"}, Headers: map[string]string{"Authorization": "Bearer {credential}"}}
 	m := install.Manifest{Version: 1, Providers: []install.Provider{{ID: "claude", Binary: "tool", Source: "https://example.invalid", Recipes: map[string]install.Recipe{"*": {Channel: "steps"}}, LaunchConfig: install.LaunchConfig{Version: 1, Backends: map[string]install.LaunchSpec{"mock": spec}}}}}
 	profile := filepath.Join(t.TempDir(), "profile")
 	if _, e := Configure(m, Options{Provider: "claude", Backend: "mock", BaseURL: server.URL, Model: "m", CredentialEnv: "WP138_RUNTIME_SECRET", ProfileDir: profile, InstallRoot: root}); e != nil {
@@ -100,7 +104,7 @@ func TestRuntimeCredentialNeverReachesChildDiskOrOutput(t *testing.T) {
 	observer := &fileObserver{t: t, dir: profile, key: key}
 	var stderr strings.Builder
 	code, e := Run(context.Background(), m, "claude", profile, []string{"", "literal quotes \" & $() 雪"}, IO{Out: observer, Err: &stderr})
-	if e != nil || code != 0 || !called {
+	if e != nil || code != exit || !called {
 		t.Fatalf("runtime failed: %d %v called=%v stderr=%s", code, e, called, stderr.String())
 	}
 	assertAbsent(t, []byte(observer.out.String()), key)

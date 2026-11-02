@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"unicode"
 
 	"github.com/lmctl-ai/lminstall/internal/install"
 )
@@ -42,6 +43,13 @@ func cleanEnvironment(overrides map[string]string) []string {
 	}
 	return out
 }
+
+// HTTP trims field-edge whitespace. Refuse noncanonical credentials rather
+// than allowing a second, unredacted wire representation of the token.
+func validCredential(value string) bool {
+	return value != "" && strings.TrimSpace(value) == value && strings.IndexFunc(value, unicode.IsControl) == -1
+}
+
 func Run(ctx context.Context, manifest install.Manifest, provider, dir string, args []string, streams IO) (int, error) {
 	p, canonical, e := Load(dir, provider)
 	if e != nil {
@@ -54,7 +62,7 @@ func Run(ctx context.Context, manifest install.Manifest, provider, dir string, a
 		if credential == "" {
 			return 1, errors.New("credential_environment_missing")
 		}
-		if !safeValue(credential) {
+		if !validCredential(credential) {
 			return 1, errors.New("credential_environment_invalid")
 		}
 		patterns = sensitiveEncodings(credential)
@@ -140,7 +148,8 @@ func Run(ctx context.Context, manifest install.Manifest, provider, dir string, a
 			if code < 1 {
 				code = 1
 			}
-			return code, errors.New("provider_run_failed")
+			// A provider exit is the result, not a launcher diagnostic.
+			return code, nil
 		}
 		return 1, errors.New("provider_start_failed")
 	}

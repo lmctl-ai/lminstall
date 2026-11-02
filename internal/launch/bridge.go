@@ -20,6 +20,9 @@ type bridge struct {
 }
 
 func startBridge(ctx context.Context, p Profile, credential, placeholder string, patterns [][]byte) (*bridge, error) {
+	if !validCredential(credential) {
+		return nil, errors.New("credential_environment_invalid")
+	}
 	target, e := url.Parse(p.BaseURL)
 	if e != nil {
 		return nil, errors.New("invalid_profile_base")
