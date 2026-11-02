@@ -12,6 +12,8 @@ cases=[
  ('foreign profile adopted','internal/launch/profile.go','e != nil || len(entries) != 0','e != nil || (false && len(entries) != 0)'),
  ('native npm through Node','internal/install/launch_exec.go','if strings.EqualFold(filepath.Ext(path), ".exe") {','if false && strings.EqualFold(filepath.Ext(path), ".exe") {'),
  ('wrong reply accepted','cmd/lminstall-mock-e2e/main.go','if observed != wanted {','if false {'),
+ ('unicode credential reflected','internal/launch/redact.go','set[upper.String()] = true','delete(set, upper.String())'),
+ ('routing environment omitted','internal/launch/profile.go','env[k] = expand(a, v)','env[k] = expand(a, v)[:0]'),
  ('foreign gateway allowed','internal/launch/cleanup.go','got != expected','false && got != expected'),
 ]
 with tempfile.TemporaryDirectory(prefix='lminstall-launch-mut-') as tmp:

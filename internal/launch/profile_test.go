@@ -209,3 +209,30 @@ func TestClaudeSlotsAndRoutingAreManifestDriven(t *testing.T) {
 		t.Fatal("model argv missing")
 	}
 }
+
+func TestProvenEnvironmentBytes(t *testing.T) {
+	b, e := os.ReadFile("testdata/environment.json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	var golden map[string]map[string]string
+	if e = json.Unmarshal(b, &golden); e != nil {
+		t.Fatal(e)
+	}
+	m := manifest(t)
+	for _, id := range tools {
+		p, _ := m.Provider(id)
+		env, _, _, e := Render(Profile{Provider: id, Model: "mock-agent", InstallRoot: "/INSTALL", Spec: p.LaunchConfig.Backends["mock"]}, "/RUNTIME", "http://127.0.0.1:12345", "PLACEHOLDER")
+		if e != nil {
+			t.Fatal(e)
+		}
+		if len(env) != len(golden[id]) {
+			t.Errorf("%s environment keys differ", id)
+		}
+		for key, want := range golden[id] {
+			if got := filepath.ToSlash(env[key]); got != want {
+				t.Errorf("%s %s bytes: got %q want %q", id, key, got, want)
+			}
+		}
+	}
+}
