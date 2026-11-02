@@ -73,6 +73,7 @@ func prepare(root, compiler string) error {
 	defer zip.Close()
 	tarball := tar.NewReader(zip)
 	source := ""
+	var schema []byte
 	for {
 		h, e := tarball.Next()
 		if e == io.EOF {
@@ -81,6 +82,12 @@ func prepare(root, compiler string) error {
 		if e != nil {
 			return e
 		}
+		if strings.TrimPrefix(h.Name, "./") == "examples/schema.json" && h.Typeflag == tar.TypeReg {
+			schema, e = io.ReadAll(tarball)
+			if e != nil {
+				return e
+			}
+		}
 		if strings.TrimPrefix(h.Name, "./") == "examples/llm-api.lms" && h.Typeflag == tar.TypeReg {
 			b, e := io.ReadAll(tarball)
 			if e != nil {
@@ -88,6 +95,12 @@ func prepare(root, compiler string) error {
 			}
 			source = string(b)
 		}
+	}
+	if len(schema) == 0 {
+		return errors.New("published_schema_missing")
+	}
+	if e = os.WriteFile(filepath.Join(root, "schema.json"), schema, 0600); e != nil {
+		return e
 	}
 	if source == "" {
 		return errors.New("published_fixture_missing")

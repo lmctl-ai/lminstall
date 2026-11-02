@@ -57,8 +57,9 @@ func TestWindowsNPMEntryPreservesLiteralArgsAndNativeExecutable(t *testing.T) {
 	os.WriteFile(filepath.Join(pkg, "package.json"), []byte(`{"bin":{"tool":"bin/tool.exe"}}`), 0600)
 	os.WriteFile(filepath.Join(pkg, "bin", "tool.exe"), []byte("fixture"), 0600)
 	args := []string{"", "literal a b & $() 雪"}
+	want, _ := filepath.EvalSymlinks(filepath.Join(pkg, "bin", "tool.exe"))
 	got, e := ResolveNPMEntry(filepath.Join(root, "tool.cmd"), "tool", "@vendor/tool", args)
-	if e != nil || len(got) != 3 || got[0] != filepath.Join(pkg, "bin", "tool.exe") || got[1] != "" || got[2] != args[1] {
+	if e != nil || len(got) != 3 || got[0] != want || got[1] != "" || got[2] != args[1] {
 		t.Fatalf("native entry routed through a shell/Node: %v %v", got, e)
 	}
 }

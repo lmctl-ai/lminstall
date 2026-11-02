@@ -155,6 +155,16 @@ func run() error {
 	if observed.Method != "POST" || !strings.HasPrefix(observed.URL, path) || !strings.Contains(observed.Body, prompt) {
 		return fmt.Errorf("request_oracle_failed: %s %s", observed.Method, observed.URL)
 	}
+	if *provider == "gemini" || *provider == "agy" {
+		if !strings.Contains(observed.URL, "/models/"+model+":") {
+			return errors.New("requested_model_missing")
+		}
+	} else {
+		var payload struct{ Model string }
+		if json.Unmarshal([]byte(observed.Body), &payload) != nil || payload.Model != model {
+			return errors.New("requested_model_mismatch")
+		}
+	}
 	result := map[string]any{"provider": *provider, "exit": 0, "reply": reply, "control": "CAUGHT wrong-expectation", "configured_with": "lminstall configure/run", "profile": profile}
 	b, _ = json.MarshalIndent(result, "", "  ")
 	os.WriteFile(filepath.Join(root, "result.json"), b, 0600)

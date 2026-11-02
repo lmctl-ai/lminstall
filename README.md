@@ -278,7 +278,7 @@ After the installation Action, another repository can use the configure step:
     provider: claude
     backend: ollama-cloud
     base-url: https://ollama.com
-    model: glm-5.3:flash
+    model: glm-5.3-flash
     credential-env: OLLAMA_API_KEY
     profile-dir: ${{ runner.temp }}/claude-profile
 - shell: bash

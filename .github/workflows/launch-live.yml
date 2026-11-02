@@ -1,0 +1,32 @@
+name: launch-live
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        required: true
+    secrets:
+      OLLAMA_API_KEY:
+        required: true
+permissions:
+  contents: read
+jobs:
+  claude-cloud:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: lmctl-ai/lminstall
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+      - uses: ./
+        with:
+          providers: claude
+      - name: Build private-output live oracle
+        run: go build -o "$RUNNER_TEMP/live-e2e" ./cmd/lminstall-live-e2e
+      - name: Invalid synthetic bearer failing control
+        run: '"$RUNNER_TEMP/live-e2e" --invalid-auth'
+      - name: One real prompt through configure and run
+        env:
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+        run: '"$RUNNER_TEMP/live-e2e"'
