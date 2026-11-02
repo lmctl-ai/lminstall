@@ -1,0 +1,61 @@
+name: oauth-mock
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      lmmock_ref:
+        description: 'lmmock ref to build'
+        type: string
+        default: main
+  workflow_call:
+    inputs:
+      lmmock_ref:
+        type: string
+        default: main
+permissions:
+  contents: read
+concurrency:
+  group: oauth-mock-${{ github.sha }}
+  cancel-in-progress: true
+jobs:
+  # Real vendor CLI, real OAuth device-code login, against lmmock's mocked login
+  # server. lminspect terminates TLS for the vendor's login host and routes it to
+  # lmmock; the CLI is installed by lminstall itself.
+  codex-device-login:
+    name: codex-device-login-${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      LMMOCK_REF: ${{ inputs.lmmock_ref || 'main' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./
+        with:
+          providers: codex
+      - name: Fetch lmmock and lminspect sources
+        run: |
+          git clone https://github.com/lmctl-ai/lmmock "$RUNNER_TEMP/lmmock-src"
+          git -C "$RUNNER_TEMP/lmmock-src" checkout "$LMMOCK_REF"
+          git clone --depth 1 https://github.com/lmctl-ai/lminspect "$RUNNER_TEMP/lminspect-src"
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: ${{ runner.temp }}/lmmock-src/go.mod
+          cache: false
+      - name: Build lmmock
+        run: go -C "$RUNNER_TEMP/lmmock-src" build -trimpath -o "$RUNNER_TEMP/lmmock" ./cmd/lmmock
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: ${{ runner.temp }}/lminspect-src/go.mod
+          cache: false
+      - name: Build lminspect
+        run: go -C "$RUNNER_TEMP/lminspect-src" build -trimpath -o "$RUNNER_TEMP/lminspect" .
+      - name: Codex device-code login, refresh, logout and failure modes
+        run: |
+          codex --version
+          bash "$RUNNER_TEMP/lmmock-src/scripts/codex-login-e2e.sh" "$(command -v codex)" "$RUNNER_TEMP/lminspect" "$RUNNER_TEMP/lmmock"

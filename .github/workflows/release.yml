@@ -19,8 +19,10 @@ jobs:
   # Installed providers driven against the released lmmock API mock.
   mock-tests:
     uses: ./.github/workflows/launch-mock.yml
+  oauth-tests:
+    uses: ./.github/workflows/oauth-mock.yml
   build:
-    needs: [install-tests, mock-tests]
+    needs: [install-tests, mock-tests, oauth-tests]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

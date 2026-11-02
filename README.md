@@ -159,6 +159,8 @@ against the released lmmock API mock). Only if both pass does it cross-compile s
 binaries for linux/darwin/windows × amd64/arm64 and publish them with `SHA256SUMS`
 as a GitHub Release (`v0.1.N`). Nothing is published to npm.
 
+`oauth-mock.yml` installs Codex with lminstall and performs a real `codex login --device-auth` (plus refresh, logout and failure modes) against lmmock's mocked OAuth server: lminspect terminates TLS for `auth.openai.com` and routes it to lmmock. No account or network login is involved.
+
 `launch-mock.yml` uses `lmmock --builtin llm-api` (no Node or script compiler). On
 Ubuntu the real client talks to [lminspect](https://github.com/lmctl-ai/lminspect)
 in reverse-proxy mode in front of lmmock; the recorded `flows.jsonl` and the
