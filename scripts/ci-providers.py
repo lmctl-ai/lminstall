@@ -1,14 +1,32 @@
 #!/usr/bin/env python3
 """Live installs, never model prompts. Attempt the whole catalog and retain failures."""
-import json,os,pathlib,subprocess,sys
+import json,os,pathlib,subprocess,sys,shutil
 sys.stdout.reconfigure(encoding='utf-8',errors='backslashreplace')
 sys.stderr.reconfigure(encoding='utf-8',errors='backslashreplace')
 binary=str(pathlib.Path(sys.argv[1]).resolve())
 root=pathlib.Path(os.environ['RUNNER_TEMP'])/'lminstall live root 雪'
 summary=[]
+# Linux native-provider rows deliberately cannot find host Node/npm/uv.
+# Keep other ordinary OS build tools available to the upstream Hermes PM.
+minimal=root/'no-node-tools'
+if sys.platform=='linux':
+ minimal.mkdir(parents=True,exist_ok=True)
+ excluded={'node','nodejs','npm','npx','uv','uvx','sudo','doas','su'}
+ for directory in ['/usr/bin','/bin']:
+  for entry in pathlib.Path(directory).iterdir():
+   dest=minimal/entry.name
+   if entry.name not in excluded and entry.is_file() and not dest.exists():
+    dest.symlink_to(entry)
+ for name in excluded:
+  assert shutil.which(name,path=str(minimal)) is None,name
+
 def call(op,name):
  print(json.dumps({'provider':name,'operation':op,'event':'start'}),flush=True)
- p=subprocess.run([binary,op,name,'--root',str(root),'--json'],stdout=subprocess.PIPE,stderr=None)
+ env=os.environ.copy()
+ if sys.platform=='linux' and name in {'kimi','agy','muse','hermes'}:
+  env['PATH']=str(minimal)
+  print(json.dumps({'provider':name,'no_host_node_npm_uv':True}),flush=True)
+ p=subprocess.run([binary,op,name,'--root',str(root),'--json'],stdout=subprocess.PIPE,stderr=None,env=env)
  try:rows=json.loads(p.stdout);row=rows[0]
  except (ValueError,IndexError):row={'reason':p.stdout.decode(errors='replace')}
  return p.returncode,row

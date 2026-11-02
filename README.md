@@ -20,7 +20,16 @@ and `%LOCALAPPDATA%\lminstall` on Windows. Each provider has its own prefix.
 Install output reports `bin_dir`; add that directory to PATH. In GitHub Actions
 successful installs append it to GITHUB_PATH automatically. No shell profile is
 edited by lminstall. Existing external installs, credentials, sessions and config
-are not adopted or uninstalled. Upstream script bootstraps use an owned HOME.
+are not adopted or uninstalled. Native bootstrap implementations use an owned HOME. No vendor installer .sh or
+.ps1 is downloaded, embedded or executed by the product. Inspected vendor scripts
+are translated into Go download/verification/extraction/bootstrap operations.
+
+For npm providers, `npm install --global --prefix <owned-provider>/npm` is the
+user-prefix equivalent of the vendor's `npm install -g`: the same package and
+`@latest` dist-tag (npm's default), without sudo. Provide Node.js 22.19+ and npm.
+If Node/npm is missing these npm methods fail with a prerequisite error. Native
+Kimi, Antigravity and Muse do not need Node/npm/uv. Hermes bootstraps its own pinned
+uv, Python and PM-managed Node/runtime tools, even when none is on PATH.
 
 Install is idempotent only after the managed binary passes `--version`; a broken
 or partial install is repaired on the next install. Upgrade asks the same official
@@ -66,23 +75,32 @@ All metadata, script and artifact requests require HTTPS through every redirect.
 | [gemini](https://github.com/google-gemini/gemini-cli) | npm @google/gemini-cli; Node/npm |
 | [copilot](https://docs.github.com/en/copilot/how-tos/copilot-cli/install-copilot-cli) | npm @github/copilot; Node/npm |
 | [opencode](https://opencode.ai/docs/) | npm opencode-ai; Node/npm |
-| [kimi](https://moonshotai.github.io/kimi-code/en/guides/getting-started) | npm @moonshot-ai/kimi-code (current successor to archived kimi-cli); Node/npm |
+| [kimi](https://github.com/MoonshotAI/kimi-code) | Native latest/platform manifest and SHA-256 binary; region marker; no Node runtime |
 | [qwen](https://github.com/QwenLM/qwen-code) | npm @qwen-code/qwen-code; Node/npm |
 | [pi](https://github.com/earendil-works/pi) | npm @earendil-works/pi-coding-agent, official --ignore-scripts; Node/npm |
-| [dsh](https://deepseekdocs.com/en/docs/user-guide/cli) | npm @deepseek-ai/dsh; Node/npm |
+| [dsh](https://github.com/deepseek-ai/deepseek-harness) | npm @deepseek-ai/dsh; Node/npm |
 | [miniplayer](https://github.com/lmctl-ai/miniplayer) | npm from its official public Git source; Node/npm and Git (no published releases at initial inspection) |
 | [lmplayer](https://github.com/lmctl-ai/lmplayer/releases) | Official release archive; SHA-256 from release metadata or official SHA256SUMS; no Node runtime |
-| [hermes](https://github.com/NousResearch/hermes-agent) | official Git project and frozen uv sync, Python 3.14 core dependencies; uv and Git |
+| [hermes](https://hermes-agent.nousresearch.com/docs/getting-started/installation) | Latest stable source; verified uv bootstrap, Python 3.14, official PM install and source completion; Git prerequisite on POSIX, verified portable Git bootstrap on Windows |
 | [agy](https://antigravity.google/download) | Official updater manifest and SHA-512 artifact, without its system setup handoff |
-| [muse](https://dev.meta.ai/lp/muse-code) | Official shell/PowerShell installer and launcher, owned directory; no login during install |
+| [muse](https://dev.meta.ai/lp/muse-code) | Native muse-stable channel/release manifest, SHA-256 and exact artifact size; restricted downloads fail without authentication |
 | claudemock | Unavailable as a standalone CLI: it is an lmctl fixture. Enable LMCTL_ENABLE_MOCK_PROVIDER=1 in lmctl. No fake installation/version is substituted. |
 
-The application is static, not the providers' runtimes. Node 24/npm and uv are
-provisioned by the composite Action. A standalone user must supply the prerequisite
+The application is static, not the providers' runtimes. Node 24/npm are
+provisioned by the composite Action (Node/npm only; Hermes owns uv). A standalone user must supply the prerequisite
 for their chosen channel; missing commands fail with an actionable prerequisite
 message. Providers may require Git Bash on Windows to operate beyond --version.
-Hermes uses upstream's core package; optional integrations/extras remain upstream
-package-management choices. Installation does not configure a model or API key.
+Hermes follows upstream's noninteractive source installer: the latest stable
+checkout, verified tool pins from pm/lock.json, PM's default dependencies and
+source product completion. Its browser/computer-use tools follow upstream's
+default policy. Interactive setup, model login and gateway/service setup are left
+to the user. POSIX Git/Xcode tools, native compilers and system libraries such as
+Linux libatomic/Chromium libraries may require an administrator. lminstall never
+runs sudo or a system package manager: its POSIX PM environment excludes those
+commands. Windows can bootstrap the official checksum-pinned portable Git.
+No user shell profiles or system services are changed; native Antigravity's
+PATH/service setup handoff and Kimi's migration of external legacy shims are
+intentionally omitted to respect owned-prefix boundaries. Installation does not configure a model or API key.
 
 ## Reusable composite Action
 
@@ -100,7 +118,7 @@ steps:
 
 Inputs: `providers` (required space-separated IDs), optional `root`.
 Output: `executable`, the native lminstall path. It builds this repository with
-CGO_ENABLED=0, sets up Node/npm and uv, installs the requested providers and exports
+CGO_ENABLED=0, sets up Node/npm, installs the requested providers and exports
 paths and LMINSTALL_ROOT so later status/upgrade/uninstall commands use the same
 prefix. No token/key inputs, release fetching of lminstall itself or manual tags.
 It fails when a requested provider is unavailable; it never silently skips one.
@@ -129,25 +147,37 @@ workflow and test changes still run the complete live matrix.
 ## Manifest and development
 
 Adding a provider is data: id, binary, official source link and per-OS recipe.
-Generic channels are npm, uv tools, Git projects, checksum update manifests, GitHub release archives and downloaded official
-installer steps. Recipes contain argv arrays, owned paths and environment values;
+Channels include npm, Git projects, checksum update manifests, GitHub release
+archives and Go-native Kimi/Muse/Hermes installers. Recipes contain argv arrays, owned paths and environment values;
 root paths never interpolate into shell code. Use `--manifest FILE` to explicitly
 replace the embedded catalog with another trusted manifest; provider IDs and
-per-platform recipes are never inherited. Downloaded installer steps require a
-`digest: "sha256:<64 hex characters>"`; a mismatch prevents execution.
+per-platform recipes are never inherited. Downloaded installer steps are refused; provider-specific installer logic lives
+in Go, and release payloads retain their vendor checksum verification.
 Manifests execute installation code and are trusted
 configuration; official source/provenance review is part of adding an entry.
 
-The embedded Muse bootstrap scripts have reviewed SHA-256 content pins. An upstream
-script change fails closed and requires reviewing and updating its catalog hash;
-the bootstrap still chooses its upstream provider payload. Action dependencies
-use full commit IDs. These pins do not freeze provider versions: npm `@latest`,
-Miniplayer's official Git default branch and Hermes's official Git HEAD remain
-intentional newest-version sources for install/upgrade. npm/uv integrity and HTTPS
-protect transfers; they do not make mutable upstream publishers reproducible or
-protect against a compromised publisher. A full provider lockfile/signature system
-would be a separate design, outside these fixes. Pin this Action to a reviewed full
-commit ID in consumers; `@main` below is the moving development example.
+Kimi uses the binary SHA-256 from its versioned manifest (the vendor's script
+allows the same bare-binary path as a tarball fallback). Muse's script checks its
+launcher against an optional HTTP hash header, then its launcher requires a
+SHA-256 and exact size for the native payload; Go skips the launcher entirely
+and enforces both payload checks. Antigravity uses the official updater SHA-512.
+Hermes's uv and Windows Git bootstrap archives have the upstream SHA-256 pins;
+its PM verifies tool hashes and the uv.lock dependency graph. No installer-script
+hash mechanism remains. HTTPS is required for requests and redirect hops.
+
+Official supported npm methods are retained for Claude (the setup page supports
+npm although the repository recommends native installation), Codex, Gemini,
+Copilot, OpenCode, Qwen, Pi (`--ignore-scripts`) and DSH. Qwen/Pi/Codex/OpenCode
+also advertise standalone script methods; these remain documented vendor
+alternatives rather than shell execution paths. Miniplayer's README advertises
+standalone releases but the latest-release API currently returns 404; its official
+source/npm method remains selected. lmplayer uses its own official release
+archives, never OpenCode's installer or package names.
+
+Action dependencies use full commit IDs. These pins do not freeze provider
+versions: npm `@latest` and Miniplayer's Git default branch intentionally follow
+new releases. Publisher compromise defenses and reproducible transitive locks
+remain upstream trust concerns. Pin this Action to a reviewed full commit ID.
 
 ```sh
 go test ./...
