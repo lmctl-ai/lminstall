@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: launch-mock-${{ github.ref }}
+  group: launch-mock-${{ github.sha }}
   cancel-in-progress: true
 jobs:
   launch:

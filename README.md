@@ -291,7 +291,7 @@ The `launch-mock` workflow runs install → configure → run → exact reply/as
 with real tools on Ubuntu, macOS and Windows, a checksummed lmmock release and a
 wrong-expectation failing control. Live keys never enter this matrix. Installation
 CI remains a separate full-catalog lifecycle check. Offline launch controls:
-`python3 scripts/mutate-launch.py`.
+`go run scripts/mutate-launch.go`.
 Native updater artifacts are verified at a private staging pathname before replacing the installed executable. A rejected candidate leaves the working binary and receipt in place. Archive extraction uses a directory-root handle and validates the gzip trailer; a pre-existing symlink cannot redirect a file outside that root. Windows Hermes PortableGit uses the official SHA-addressed mirror only for availability failures, with the same digest.
 
 Hermes source upgrades build in a new owned checkout and verify the selected stable version before selecting its launcher, just like a versioned release bundle. A failed completion leaves the prior checkout and receipt usable. `bin_dir` is the stable owned `bin` directory; upgrading a legacy source-path install may require refreshing PATH from that reported value. Earlier verified checkouts remain owned until uninstall so a failed candidate cannot mutate them. Native artifact verification output is reused when writing the receipt; the installer does not execute the artifact again after replacing the old pathname.
