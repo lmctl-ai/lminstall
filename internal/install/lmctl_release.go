@@ -214,6 +214,9 @@ func lmctlLaunchers(bin, node, root string) error {
 // Tokens remain in the environment and are sent only to api.github.com.
 func InstallLmctl(ctx context.Context, root, selector, candidateFile string) (LmctlInstallation, error) {
 	var result LmctlInstallation
+	if !filepath.IsAbs(root) || strings.ContainsAny(root, "\r\n") {
+		return result, fmt.Errorf("lmctl root must be a single-line absolute owned prefix")
+	}
 	node, err := exec.LookPath("node")
 	if err != nil {
 		return result, fmt.Errorf("lmctl aggregate requires Node >=24.15.0; use the lminstall Action to provision it")

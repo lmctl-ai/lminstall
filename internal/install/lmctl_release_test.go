@@ -112,6 +112,9 @@ func TestLmctlPrivateReleaseInstallAndRerun(t *testing.T) {
 	if b, _ := os.ReadFile(userFile); string(b) != "user-owned" {
 		t.Fatal("overwrote unmanaged launcher")
 	}
+	if _, err = InstallLmctl(context.Background(), t.TempDir()+"\noutput=injection", "latest", ""); err == nil || !strings.Contains(err.Error(), "single-line") {
+		t.Fatal("accepted multi-line Action prefix")
+	}
 	os.WriteFile(filepath.Join(first.PackageRoot, "dist/cli/schema.sql"), []byte("corrupt"), 0600)
 	if _, err = InstallLmctl(context.Background(), root, "latest", ""); err == nil {
 		t.Fatal("accepted corrupt installed sibling")
