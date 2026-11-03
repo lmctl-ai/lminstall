@@ -213,6 +213,33 @@ func InstallLmctl(ctx context.Context, root, selector, candidateFile string) (Lm
 	if major < 24 || (major == 24 && minor < 15) {
 		return result, fmt.Errorf("Node >=24.15.0 required")
 	}
+	if err = os.MkdirAll(root, 0700); err != nil {
+		return result, err
+	}
+	lockPath := filepath.Join(root, ".lmctl-install.lock")
+	lock, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return result, fmt.Errorf("lmctl installer prefix busy: %w", err)
+	}
+	lockInfo, _ := lock.Stat()
+	lock.Close()
+	defer func() {
+		if current, e := os.Stat(lockPath); e == nil && os.SameFile(lockInfo, current) {
+			os.Remove(lockPath)
+		}
+	}()
+	installationDir := filepath.Join(root, "lmctl")
+	if err = os.Mkdir(installationDir, 0700); err == nil {
+		if err = os.WriteFile(filepath.Join(installationDir, ".lminstall-owner"), []byte("lmctl\n"), 0600); err != nil {
+			return result, err
+		}
+	} else if os.IsExist(err) {
+		if err = owned(installationDir, "lmctl"); err != nil {
+			return result, err
+		}
+	} else {
+		return result, err
+	}
 	var c LmctlCandidate
 	if candidateFile != "" {
 		b, e := os.ReadFile(candidateFile)
@@ -298,10 +325,9 @@ func InstallLmctl(ctx context.Context, root, selector, candidateFile string) (Lm
 	if !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(digest) {
 		return result, fmt.Errorf("invalid archive digest")
 	}
-	owned := filepath.Join(root, "lmctl")
-	receiptPath := filepath.Join(owned, "install.json")
-	packageRoot := filepath.Join(owned, "releases", digest, "package")
-	result = LmctlInstallation{Version: c.Version, PackageRoot: packageRoot, BinDir: filepath.Join(owned, "bin"), Digest: digest}
+	receiptPath := filepath.Join(installationDir, "install.json")
+	packageRoot := filepath.Join(installationDir, "releases", digest, "package")
+	result = LmctlInstallation{Version: c.Version, PackageRoot: packageRoot, BinDir: filepath.Join(installationDir, "bin"), Digest: digest}
 	var previous lmctlReceipt
 	if b, e := os.ReadFile(receiptPath); e == nil && json.Unmarshal(b, &previous) == nil && previous.Digest == digest {
 		files, e := lmctlFiles(packageRoot)
@@ -321,10 +347,10 @@ func InstallLmctl(ctx context.Context, root, selector, candidateFile string) (Lm
 		if e != nil {
 			return result, e
 		}
-		if e = os.MkdirAll(owned, 0700); e != nil {
+		if e = os.MkdirAll(installationDir, 0700); e != nil {
 			return result, e
 		}
-		stage, e := os.MkdirTemp(owned, "candidate-")
+		stage, e := os.MkdirTemp(installationDir, "candidate-")
 		if e != nil {
 			return result, e
 		}
@@ -367,7 +393,7 @@ func InstallLmctl(ctx context.Context, root, selector, candidateFile string) (Lm
 	if err != nil {
 		return result, err
 	}
-	temp, err := os.CreateTemp(owned, "receipt-")
+	temp, err := os.CreateTemp(installationDir, "receipt-")
 	if err != nil {
 		return result, err
 	}

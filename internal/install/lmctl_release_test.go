@@ -101,6 +101,16 @@ func TestLmctlPrivateReleaseInstallAndRerun(t *testing.T) {
 	if first != second || archiveGets != 1 {
 		t.Fatalf("rerun duplicated payload: %+v %+v gets=%d", first, second, archiveGets)
 	}
+	unmanaged := t.TempDir()
+	userFile := filepath.Join(unmanaged, "lmctl", "bin", "lmctl")
+	os.MkdirAll(filepath.Dir(userFile), 0700)
+	os.WriteFile(userFile, []byte("user-owned"), 0600)
+	if _, err = InstallLmctl(context.Background(), unmanaged, "latest", ""); err == nil {
+		t.Fatal("accepted unmanaged prefix")
+	}
+	if b, _ := os.ReadFile(userFile); string(b) != "user-owned" {
+		t.Fatal("overwrote unmanaged launcher")
+	}
 	os.WriteFile(filepath.Join(first.PackageRoot, "dist/cli/schema.sql"), []byte("corrupt"), 0600)
 	if _, err = InstallLmctl(context.Background(), root, "latest", ""); err == nil {
 		t.Fatal("accepted corrupt installed sibling")
