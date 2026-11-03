@@ -74,7 +74,8 @@ func lmctlGet(ctx context.Context, path string) ([]byte, error) {
 	}
 	resp, err := safe.Do(req)
 	if err != nil {
-		return nil, err
+		// net/url.Error can include the redirected signed URL, which is a credential.
+		return nil, fmt.Errorf("private lmctl release transport failed (%T)", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {

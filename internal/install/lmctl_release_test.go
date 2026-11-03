@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -177,5 +178,30 @@ func TestLmctlAssetRedirectDoesNotForwardToken(t *testing.T) {
 	}
 	if string(b) != "verified bytes" {
 		t.Fatal("redirected payload changed")
+	}
+}
+
+func TestLmctlTransportErrorsHideSignedDownloadQueries(t *testing.T) {
+	api := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://download.api.github.com/payload?token=synthetic-signed-value", http.StatusFound)
+	}))
+	defer api.Close()
+	saved := client
+	client = api.Client()
+	transport := client.Transport
+	client.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Hostname() == "download.api.github.com" {
+			return nil, fmt.Errorf("fixture asset peer unavailable")
+		}
+		local := r.Clone(r.Context())
+		u := *r.URL
+		u.Host = strings.TrimPrefix(api.URL, "https://")
+		local.URL = &u
+		return transport.RoundTrip(local)
+	})
+	defer func() { client = saved }()
+	_, err := lmctlGet(context.Background(), "/releases/assets/1")
+	if err == nil || strings.Contains(err.Error(), "synthetic-signed-value") {
+		t.Fatal("signed download query exposed in transport error")
 	}
 }
