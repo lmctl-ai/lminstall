@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -114,5 +115,22 @@ func TestLmctlPrivateReleaseInstallAndRerun(t *testing.T) {
 	os.WriteFile(filepath.Join(first.PackageRoot, "dist/cli/schema.sql"), []byte("corrupt"), 0600)
 	if _, err = InstallLmctl(context.Background(), root, "latest", ""); err == nil {
 		t.Fatal("accepted corrupt installed sibling")
+	}
+}
+
+func TestLmctlVersionProbeDoesNotExposeReleaseToken(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "bin"), 0700)
+	for _, name := range []string{"lmctl", "lmscript"} {
+		source := "if(process.env.LMCTL_RELEASE_TOKEN)process.exit(9);console.log('" + name + " 0.2.38-github.1.1')"
+		os.WriteFile(filepath.Join(root, "bin", name), []byte(source), 0600)
+	}
+	t.Setenv("LMCTL_RELEASE_TOKEN", "synthetic-token")
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = lmctlCheckVersions(context.Background(), node, root, "0.2.38-github.1.1"); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -156,8 +156,26 @@ func lmctlFiles(root string) (map[string]string, error) {
 	return out, err
 }
 func lmctlCheckVersions(ctx context.Context, node, root, version string) error {
+	// Version probes must not inspect operator profiles or inherit the private download token.
+	home, err := os.MkdirTemp("", "lminstall-lmctl-probe-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(home)
+	var environment []string
+	for _, item := range os.Environ() {
+		key, _, _ := strings.Cut(item, "=")
+		upper := strings.ToUpper(key)
+		if upper == "HOME" || upper == "USERPROFILE" || strings.HasPrefix(upper, "LMCTL_") || strings.HasPrefix(upper, "LMSCRIPT_") || strings.Contains(upper, "TOKEN") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "API_KEY") {
+			continue
+		}
+		environment = append(environment, item)
+	}
+	environment = append(environment, "HOME="+home, "USERPROFILE="+home, "LMCTL_NO_UPDATE_NOTIFIER=1", "LMCTL_LMBEE_BRIDGE=0")
 	for _, name := range []string{"lmctl", "lmscript"} {
-		out, err := exec.CommandContext(ctx, node, filepath.Join(root, "bin", name), "--version").CombinedOutput()
+		command := exec.CommandContext(ctx, node, filepath.Join(root, "bin", name), "--version")
+		command.Env = environment
+		out, err := command.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("%s version probe failed: %w", name, err)
 		}
