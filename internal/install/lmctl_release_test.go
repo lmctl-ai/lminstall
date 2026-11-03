@@ -137,3 +137,45 @@ func TestLmctlVersionProbeDoesNotExposeReleaseToken(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLmctlAssetRedirectDoesNotForwardToken(t *testing.T) {
+	asset := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			t.Error("release token forwarded to asset host")
+		}
+		w.Write([]byte("verified bytes"))
+	}))
+	defer asset.Close()
+	api := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer synthetic" {
+			t.Error("private API request missing token")
+		}
+		http.Redirect(w, r, "https://download.api.github.com/payload", http.StatusFound)
+	}))
+	defer api.Close()
+	saved := client
+	client = api.Client()
+	transport := client.Transport
+	client.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+		local := r.Clone(r.Context())
+		if local.URL.Hostname() == "api.github.com" || local.URL.Hostname() == "download.api.github.com" {
+			u := *local.URL
+			target := api.URL
+			if local.URL.Hostname() == "download.api.github.com" {
+				target = asset.URL
+			}
+			u.Host = strings.TrimPrefix(target, "https://")
+			local.URL = &u
+		}
+		return transport.RoundTrip(local)
+	})
+	defer func() { client = saved }()
+	t.Setenv("LMCTL_RELEASE_TOKEN", "synthetic")
+	b, err := lmctlGet(context.Background(), "/releases/assets/1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "verified bytes" {
+		t.Fatal("redirected payload changed")
+	}
+}
