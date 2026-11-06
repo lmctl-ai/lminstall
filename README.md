@@ -149,6 +149,12 @@ paths and LMINSTALL_ROOT so later status/upgrade/uninstall commands use the same
 prefix. No token/key inputs, release fetching of lminstall itself or manual tags.
 It fails when a requested provider is unavailable; it never silently skips one.
 
+## Examples
+
+[`examples/`](examples/) has runnable scripts (install a provider and test it with the right and a
+wrong API key against lmmock, `lminstall env` for orchestrators) and a consumer GitHub Actions
+workflow. See [examples/README.md](examples/README.md).
+
 ## Releases and CI
 
 `release.yml` runs on every push to `main`. It calls `ci.yml` (unit tests plus real

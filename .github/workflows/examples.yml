@@ -1,0 +1,62 @@
+name: examples
+# Runs examples/*.sh against real providers and the released lmmock, so the
+# documented examples cannot rot. Not part of the release gate.
+on:
+  push:
+    branches: ['claude/**']
+  pull_request:
+    paths: ['examples/**', '.github/workflows/examples.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: examples-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+jobs:
+  scripts:
+    name: ${{ matrix.script }} ${{ matrix.provider }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, provider: claude, script: mock-run.sh}
+          - {os: ubuntu-24.04, provider: pi, script: mock-run.sh}
+          - {os: ubuntu-24.04, provider: codex, script: mock-run.sh}
+          - {os: macos-15, provider: claude, script: mock-run.sh}
+          - {os: ubuntu-24.04, provider: claude, script: orchestrator-env.sh}
+          - {os: macos-15, provider: claude, script: orchestrator-env.sh}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      GITHUB_TOKEN: ${{ github.token }}   # release-API quota only
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'   # only to run JavaScript providers such as pi
+      - name: Build lminstall
+        run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/bin/lminstall" ./cmd/lminstall
+      - name: Download the latest lmmock release and verify its checksum
+        run: |
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64) asset=lmmock-linux-x64 ;; Linux-ARM64) asset=lmmock-linux-arm64 ;;
+            macOS-X64) asset=lmmock-macos-x64 ;; macOS-ARM64) asset=lmmock-macos-arm64 ;;
+            *) echo "unsupported runner $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+          tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/lmctl-ai/lmmock/releases/latest)"; tag="${tag##*/}"
+          base="https://github.com/lmctl-ai/lmmock/releases/download/$tag"
+          curl -fsSL -o "$RUNNER_TEMP/bin/lmmock" "$base/$asset"
+          curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "$base/SHA256SUMS"
+          (cd "$RUNNER_TEMP" && grep " $asset\$" SHA256SUMS | awk '{print $1"  bin/lmmock"}' | shasum -a 256 -c -)
+          chmod +x "$RUNNER_TEMP/bin/lmmock"
+          "$RUNNER_TEMP/bin/lmmock" --version
+      - name: Run examples/${{ matrix.script }} ${{ matrix.provider }}
+        run: |
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          examples/${{ matrix.script }} ${{ matrix.provider }}

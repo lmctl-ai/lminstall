@@ -1,0 +1,53 @@
+# A consumer repository's workflow: install coding CLIs with lminstall's Action and
+# smoke-test them against lmmock's LLM API mock (no API key, no network model).
+# Copy to .github/workflows/ in your repository. Pin the Action to a reviewed commit.
+name: coding-cli-smoke
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        provider: [claude, codex]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: lmctl-ai/lminstall@main            # pin a reviewed commit in production
+        with:
+          providers: ${{ matrix.provider }}
+      - name: Get lmmock (latest release, checksum verified)
+        shell: bash
+        run: |
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64) a=lmmock-linux-x64 ;; Linux-ARM64) a=lmmock-linux-arm64 ;;
+            macOS-X64) a=lmmock-macos-x64 ;; macOS-ARM64) a=lmmock-macos-arm64 ;;
+          esac
+          tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/lmctl-ai/lmmock/releases/latest)"; tag="${tag##*/}"
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL -o "$RUNNER_TEMP/bin/lmmock" "https://github.com/lmctl-ai/lmmock/releases/download/$tag/$a"
+          curl -fsSL -o "$RUNNER_TEMP/SHA256SUMS" "https://github.com/lmctl-ai/lmmock/releases/download/$tag/SHA256SUMS"
+          (cd "$RUNNER_TEMP" && grep " $a\$" SHA256SUMS | awk '{print $1"  bin/lmmock"}' | shasum -a 256 -c -)
+          chmod +x "$RUNNER_TEMP/bin/lmmock"; echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: lmctl-ai/lminstall/configure@main  # pin the same commit
+        with:
+          provider: ${{ matrix.provider }}
+          backend: mock
+          base-url: http://127.0.0.1:8080          # the port lmmock listens on below
+          model: mock-agent
+          credential-env: MOCK_API_KEY
+          profile-dir: ${{ runner.temp }}/profile
+      - name: Run the real CLI against the mock
+        shell: bash
+        env:
+          MOCK_API_KEY: example-key
+        run: |
+          echo '{"text":"SMOKE_OK","toolCalls":false,"anthropicBearer":true,"apiKey":"example-key"}' > "$RUNNER_TEMP/mock.json"
+          case "${{ matrix.provider }}" in
+            claude) args=(--no-session-persistence --tools "" -p "say it" --output-format json) ;;
+            codex)  args=(exec --skip-git-repo-check --json "say it") ;;
+          esac
+          lmmock exec --builtin llm-api --config "$RUNNER_TEMP/mock.json" --listen 127.0.0.1:8080 -- \
+            bash -c 'lminstall run "$0" --profile-dir "$1" -- "${@:2}" </dev/null | grep -q SMOKE_OK' \
+            "${{ matrix.provider }}" "$LMINSTALL_PROFILE_DIR" "${args[@]}"
