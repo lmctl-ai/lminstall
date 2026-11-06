@@ -30,7 +30,8 @@ func launchCLI(args []string) int {
 	model := flags.String("model", "", "model")
 	credential := flags.String("credential-env", "", "environment variable name")
 	dir := flags.String("profile-dir", "", "absolute profile directory")
-	format := flags.String("format", "plan", "plan or github-env")
+	runtimeDir := flags.String("runtime-dir", "", "absolute persistent runtime directory (env)")
+	format := flags.String("format", "plan", "plan, github-env or sh")
 	root := flags.String("root", "", "owned installation root")
 	manifestPath := flags.String("manifest", "", "trusted manifest")
 	if flags.Parse(args[2:]) != nil {
@@ -94,11 +95,45 @@ func launchCLI(args []string) int {
 		}
 		return 0
 	}
+	if operation == "env" {
+		if len(flags.Args()) != 0 || *runtimeDir == "" || (*format != "plan" && *format != "github-env" && *format != "sh") {
+			fmt.Fprintln(os.Stderr, "invalid_env_arguments")
+			return 2
+		}
+		if *backend != "" || *base != "" || *model != "" || *credential != "" || *root != "" {
+			fmt.Fprintln(os.Stderr, "env_uses_profile_configuration")
+			return 2
+		}
+		r, err := launch.Environment(m, provider, *dir, *runtimeDir)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
+		var text string
+		switch *format {
+		case "github-env":
+			text, err = launch.GitHubEnvRuntime(r)
+		case "sh":
+			text, err = launch.ShellEnvRuntime(r)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
+		if *format == "plan" {
+			if json.NewEncoder(os.Stdout).Encode(r) != nil {
+				return 1
+			}
+			return 0
+		}
+		fmt.Print(text)
+		return 0
+	}
 	if operation != "run" {
 		fmt.Fprintln(os.Stderr, "invalid_launch_operation")
 		return 2
 	}
-	if *backend != "" || *base != "" || *model != "" || *credential != "" || *root != "" || *format != "plan" {
+	if *backend != "" || *base != "" || *model != "" || *credential != "" || *root != "" || *format != "plan" || *runtimeDir != "" {
 		fmt.Fprintln(os.Stderr, "run_uses_profile_configuration")
 		return 2
 	}

@@ -1,0 +1,22 @@
+name: Render a persistent mock provider runtime
+description: Export the environment an orchestrator needs to start an installed provider against a configured mock backend, many times, with shared state.
+inputs:
+  provider:
+    description: Installed provider ID with a mock-backend profile.
+    required: true
+  profile-dir:
+    description: Absolute profile directory written by the configure step.
+    required: true
+  runtime-dir:
+    description: Absolute directory that holds the provider's HOME, config files and work directory for the whole job.
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        LAUNCH_PROVIDER: ${{ inputs.provider }}
+        LAUNCH_PROFILE: ${{ inputs.profile-dir }}
+        LAUNCH_RUNTIME: ${{ inputs.runtime-dir }}
+      run: |
+        lminstall env "$LAUNCH_PROVIDER" --profile-dir "$LAUNCH_PROFILE" --runtime-dir "$LAUNCH_RUNTIME" --format github-env >> "$GITHUB_ENV"

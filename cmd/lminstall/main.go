@@ -16,14 +16,14 @@ import (
 
 var version = "dev"
 
-const usage = "lminstall configure PROVIDER --backend mock|ollama-cloud|ollama-local --base-url URL --model ID --credential-env NAME --profile-dir ABS [--format plan|github-env] [--root DIR]\nlminstall run PROVIDER --profile-dir ABS -- <argv>\nlminstall install|uninstall|upgrade PROVIDER... [--root DIR] [--json]\nlminstall list|status [PROVIDER...] [--root DIR] [--json]\n--manifest FILE replaces the trusted embedded provider data; --version prints lminstall's version.\n"
+const usage = "lminstall configure PROVIDER --backend mock|ollama-cloud|ollama-local --base-url URL --model ID --credential-env NAME --profile-dir ABS [--format plan|github-env] [--root DIR]\nlminstall run PROVIDER --profile-dir ABS -- <argv>\nlminstall env PROVIDER --profile-dir ABS --runtime-dir ABS [--format plan|github-env|sh]\nlminstall install|uninstall|upgrade PROVIDER... [--root DIR] [--json]\nlminstall list|status [PROVIDER...] [--root DIR] [--json]\n--manifest FILE replaces the trusted embedded provider data; --version prints lminstall's version.\n"
 
 func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
 	if len(args) > 0 && args[0] == "lmctl" {
 		return lmctlCLI(args[1:])
 	}
-	if len(args) > 0 && (args[0] == "configure" || args[0] == "run") {
+	if len(args) > 0 && (args[0] == "configure" || args[0] == "run" || args[0] == "env") {
 		return launchCLI(args)
 	}
 	if len(args) == 1 && args[0] == "--version" {

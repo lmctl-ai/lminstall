@@ -251,6 +251,7 @@ vendor installer scripts, call Ollama launch, or modify your existing tool confi
 lminstall configure claude --backend mock --base-url http://127.0.0.1:8080 \
   --model mock-agent --credential-env MOCK_API_KEY --profile-dir /absolute/profile
 lminstall run claude --profile-dir /absolute/profile -- -p 'Hello' --tools ''
+lminstall env claude --profile-dir /absolute/profile --runtime-dir /absolute/runtime --format github-env
 ```
 
 `configure` emits a JSON plan by default (`--format plan`). It writes `profile.json`
@@ -271,6 +272,24 @@ isolation, not an OS sandbox; provider tools still run with your user's privileg
 Required model/routing switches precede your arguments; avoid overriding them.
 The provider's exit code is preserved; invalid profile/CLI data exits 2, launch or
 missing runtime credential failures exit 1. Stdout and stderr remain separate.
+
+`env` is for orchestrators that start the installed provider themselves, many
+times, with shared state (lmctl seeds a session and later resumes it; `run` would
+give every invocation a fresh, discarded HOME). It renders a mock-backend profile
+into one persistent, absolute `--runtime-dir` (HOME, config files such as Codex's
+`config.toml`, a work directory) and prints what to export: a JSON plan by
+default, `--format github-env` KEY=VALUE lines for `$GITHUB_ENV`, or `--format sh`
+POSIX `export` lines. Only the mock backend is accepted (`env_requires_mock_backend`
+otherwise): no credential is read or bound, the literal loopback base URL and the
+nonsecret `lminstall-mock-key` placeholder are what the provider sees. Rendering
+again into the same directory is idempotent and keeps the state already there.
+The exported lines also carry `LMINSTALL_RUNTIME_DIR`, `LMINSTALL_EXECUTABLE`
+(the installed binary) and the profile's provider, backend, model and base URL.
+
+```sh
+lminstall env claude --profile-dir /absolute/profile --runtime-dir /absolute/runtime --format sh > claude.env
+. ./claude.env && lmctl seed team.lmctl   # lmctl spawns `claude` with that routing
+```
 
 Secrets are looked up only at run time from `--credential-env NAME`. Do not put a
 key in the model, URL, argv, profile path, manifest or Action inputs. A Go loopback
@@ -319,6 +338,18 @@ After the installation Action, another repository can use the configure step:
   env:
     OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
   run: lminstall run claude --profile-dir "$LMINSTALL_PROFILE_DIR" -- -p 'Hello' --tools ''
+```
+
+For an orchestrator in Actions, `lminstall/env` exports the persistent runtime
+(the same SHA as the install and configure steps):
+
+```yaml
+- uses: lmctl-ai/lminstall/env@5054af1f6a10198b362ea51b3502504c17915f65
+  with:
+    provider: claude
+    profile-dir: ${{ runner.temp }}/claude-profile
+    runtime-dir: ${{ runner.temp }}/claude-runtime
+# later steps inherit HOME, ANTHROPIC_BASE_URL, ... and can run `lmctl seed`/`lmctl prompt`
 ```
 
 The `launch-mock` workflow runs install → configure → run → exact reply/assertion
