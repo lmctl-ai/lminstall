@@ -384,3 +384,11 @@ and hashes, to install an unpublished candidate; do not accept that path from an
 untrusted pull request. Outside Actions, provision Node >=24.15 and run
 `lminstall lmctl --root ABS --release latest`, with `LMCTL_RELEASE_TOKEN` in the
 environment. Repeat installs verify the recorded tree; changed files are refused.
+
+**Upgrading the lmctl you actually run.** `--root` is optional. Without it, `lminstall lmctl`
+upgrades in place: if the `lmctl` first on PATH is a launcher lminstall wrote, that install's
+root is used; otherwise `LMINSTALL_ROOT`, then the default prefix. lminstall never adopts or
+overwrites an `lmctl` it does not own (an `npm i -g` copy, an nvm node). After installing it
+checks what `lmctl` resolves to on PATH: the JSON reports `"active": true`, or
+`"shadowedBy": "/path/that/wins"` with a warning on stderr, so an install that the shell will
+not run is never a silent success.
