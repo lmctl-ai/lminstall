@@ -39,7 +39,7 @@ func TestLaunchCatalogAdmitsOnlyQualifiedBackends(t *testing.T) {
 				t.Errorf("%s missing explicit backend %s", p.ID, backend)
 				continue
 			}
-			want := (backend == "mock" && p.ID != "muse" && p.ID != "claudemock") || (backend == "ollama-cloud" && p.ID == "claude")
+			want := (backend == "mock" && p.ID != "muse" && p.ID != "claudemock" && p.ID != "lmctl") || (backend == "ollama-cloud" && p.ID == "claude")
 			if route.Supported != want {
 				t.Errorf("%s/%s support mismatch", p.ID, backend)
 			}

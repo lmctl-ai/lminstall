@@ -714,6 +714,52 @@
       }
     },
     {
+      "id": "lmctl",
+      "binary": "lmctl",
+      "source": "https://www.npmjs.com/package/@lmctl-ai/lmctl",
+      "recipes": {
+        "linux": {
+          "channel": "npm",
+          "package": "@lmctl-ai/lmctl@latest",
+          "bin": "npm/bin/lmctl",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "darwin": {
+          "channel": "npm",
+          "package": "@lmctl-ai/lmctl@latest",
+          "bin": "npm/bin/lmctl",
+          "bin_dir": "npm/bin",
+          "args": []
+        },
+        "windows": {
+          "channel": "npm",
+          "package": "@lmctl-ai/lmctl@latest",
+          "bin": "npm/lmctl.cmd",
+          "bin_dir": "npm",
+          "args": []
+        }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": ""
+      }
+    },
+    {
       "id": "dsh",
       "binary": "dsh",
       "source": "https://github.com/deepseek-ai/deepseek-harness",

@@ -94,6 +94,7 @@ All metadata, script and artifact requests require HTTPS through every redirect.
 | [qwen](https://github.com/QwenLM/qwen-code) | Vendor standalone archive (bundles its own Node), verified against release `SHA256SUMS`; no host Node |
 | [pi](https://github.com/earendil-works/pi) | npm @earendil-works/pi-coding-agent through the Go npm client (scripts never run); runs on Node |
 | [dsh](https://github.com/deepseek-ai/deepseek-harness) | npm @deepseek-ai/dsh through the Go npm client; runs on Node |
+| [lmctl](https://www.npmjs.com/package/@lmctl-ai/lmctl) | The public npm package `@lmctl-ai/lmctl` (`lmctl` and `lmscript`) through the Go npm client; runs on Node >=24.15. Put the reported `bin_dir` first on PATH: another `lmctl` earlier on PATH keeps winning and is not touched |
 | [miniplayer](https://github.com/lmctl-ai/miniplayer) | Its GitHub source tarball installed by the Go npm client (no git executable); runs on Node |
 | [lmplayer](https://github.com/lmctl-ai/lmplayer/releases) | Official release archive; SHA-256 from release metadata or official SHA256SUMS; no Node runtime |
 | [hermes](https://hermes-agent.nousresearch.com/docs/getting-started/installation) | Latest stable tag cloned in-process (pure-Go git, depth 1; no git executable); checksum-pinned uv, Python 3.14 and the vendor's pinned PM install run from the owned prefix |
