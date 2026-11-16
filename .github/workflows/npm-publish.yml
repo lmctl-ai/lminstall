@@ -1,0 +1,104 @@
+name: npm publish
+
+# Publishes the release binaries of lminstall to npmjs as @lmctl-ai/lminstall (launcher) plus one
+# @lmctl-ai/lminstall-OS-CPU package per platform, through npm trusted publishing (OIDC): no npm token exists
+# anywhere. Triggers: a published release, a manual run for one tag, and an hourly check that publishes the latest
+# release when npm does not have it yet (a release created with the workflow token starts no other workflow).
+# The binaries are the ones the release already carries; this workflow only repackages them after checking
+# SHA256SUMS. A version that is already on npm is skipped, so every run is safe to repeat.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (default is the latest release)
+        required: false
+        default: ''
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Trusted publishing needs npm 11.5.1 or newer
+        run: npm install -g npm@11.19.1 && npm --version
+      - name: Resolve the release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${EVENT_TAG:-${INPUT_TAG:-}}"
+          if [ -z "$tag" ]; then tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName,isDraft,isPrerelease --jq 'select(.isDraft|not) | .tagName')"; fi
+          [[ "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "release tag '$tag' is not vMAJOR.MINOR.PATCH" >&2; exit 1; }
+          version="${BASH_REMATCH[1]}"
+          # the launcher is published last, so its presence means every platform package is already out
+          if npm view "@lmctl-ai/lminstall@${version}" version >/dev/null 2>&1; then
+            echo "@lmctl-ai/lminstall@${version} is already on npm; nothing to do"
+            echo "todo=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "todo=true" >> "$GITHUB_OUTPUT"; echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Download and check the release assets
+        if: steps.release.outputs.todo == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets --pattern 'lminstall-linux-amd64' --pattern 'lminstall-linux-arm64' --pattern 'lminstall-darwin-amd64' --pattern 'lminstall-darwin-arm64' --pattern 'lminstall-windows-amd64.exe' --pattern 'lminstall-windows-arm64.exe' --pattern 'SHA256SUMS' --pattern 'LICENSE'
+          cd assets
+          sha256sum -c --ignore-missing SHA256SUMS
+          # the check above skips names SHA256SUMS lacks, so require an entry for each binary we package
+          for f in lminstall-linux-amd64 lminstall-linux-arm64 lminstall-darwin-amd64 lminstall-darwin-arm64 lminstall-windows-amd64.exe lminstall-windows-arm64.exe; do grep -qE " \*?${f//./\\.}\$" SHA256SUMS || { echo "SHA256SUMS has no entry for $f" >&2; exit 1; }; done
+      - name: Build the packages
+        if: steps.release.outputs.todo == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          license=LICENSE; [ -f "$license" ] || license=assets/LICENSE
+          node scripts/npm-packages.mjs --name lminstall --version "$VERSION" --assets assets --out out --license "$license" \
+            --repo "$GITHUB_REPOSITORY" --description "Install, upgrade and uninstall coding provider CLIs from their official channels" --target linux-x64=lminstall-linux-amd64 --target linux-arm64=lminstall-linux-arm64 --target darwin-x64=lminstall-darwin-amd64 --target darwin-arm64=lminstall-darwin-arm64 --target windows-x64=lminstall-windows-amd64.exe --target windows-arm64=lminstall-windows-arm64.exe | tee order.jsonl
+      - name: Publish (platform packages first, launcher last)
+        if: steps.release.outputs.todo == 'true'
+        run: |
+          set -euo pipefail
+          while IFS= read -r line; do
+            name="$(node -p 'JSON.parse(process.argv[1]).name' "$line")"
+            dir="$(node -p 'JSON.parse(process.argv[1]).dir' "$line")"
+            version="$(node -p 'JSON.parse(process.argv[1]).version' "$line")"
+            if npm view "${name}@${version}" version >/dev/null 2>&1; then echo "${name}@${version} already published"; continue; fi
+            echo "publishing ${name}@${version}"
+            npm publish "$dir" --access public
+          done < order.jsonl
+      - name: Smoke test the published launcher
+        if: steps.release.outputs.todo == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          sleep 20
+          mkdir smoke && cd smoke && npm init -y >/dev/null
+          for i in 1 2 3 4 5 6; do npm install --no-audit --no-fund "@lmctl-ai/lminstall@${VERSION}" && break || sleep 20; done
+          ./node_modules/.bin/lminstall --version

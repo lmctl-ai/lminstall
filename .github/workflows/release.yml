@@ -46,7 +46,7 @@ jobs:
           name: release-binaries
           path: dist/*
           if-no-files-found: error
-  # GitHub Releases only. Nothing is published to npm or any other registry.
+  # GitHub Releases; the npm job below hands the tested release to npm.
   publish:
     needs: build
     runs-on: ubuntu-24.04
@@ -69,3 +69,15 @@ jobs:
             gh release create "$tag" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest --title "$tag" \
               --notes "Static lminstall binaries for Linux, macOS and Windows (amd64/arm64). Published only after every provider installed and ran against lmmock on Linux amd64/arm64, macOS amd64/arm64 and Windows amd64."
           fi
+  # The release above is tested; hand it to npm. A release made with the workflow token starts no other workflow, so dispatch
+  # npm-publish.yml (the trusted publisher on npm) directly.
+  npm:
+    needs: publish
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: Publish the release to npm
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run npm-publish.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="v$VERSION"
