@@ -313,8 +313,15 @@ func Render(p Profile, root, base, credential string) (map[string]string, map[st
 	work := filepath.Join(root, "work")
 	v := map[string]string{"home": filepath.ToSlash(home), "profile": filepath.ToSlash(root), "install": filepath.ToSlash(filepath.Join(p.InstallRoot, "providers", p.Provider)), "base": base, "v1": strings.TrimRight(base, "/") + "/v1", "model": p.Model, "credential": credential}
 	env := map[string]string{"HOME": home, "USERPROFILE": home, "XDG_CONFIG_HOME": filepath.Join(home, "config"), "XDG_DATA_HOME": filepath.Join(home, "data"), "XDG_CACHE_HOME": filepath.Join(home, "cache"), "XDG_STATE_HOME": filepath.Join(home, "state"), "LOCALAPPDATA": filepath.Join(home, "local"), "APPDATA": filepath.Join(home, "roaming"), "CI": "true", "NO_COLOR": "1", "DO_NOT_TRACK": "1"}
+	// Environment values are native paths (they are created and compared on disk);
+	// config file contents keep the slash form.
+	native := map[string]string{}
+	for k, a := range v {
+		native[k] = a
+	}
+	native["home"], native["profile"], native["install"] = home, root, filepath.Join(p.InstallRoot, "providers", p.Provider)
 	for k, a := range p.Spec.Environment {
-		env[k] = expand(a, v)
+		env[k] = expand(a, native)
 	}
 	files := map[string]string{}
 	for _, f := range p.Spec.Files {

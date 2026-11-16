@@ -47,7 +47,7 @@ else:
 check=('npm','git','uv') if sys.platform=='win32' else ('npm','git','uv','curl','tar','unzip')
 for tool in check:
  for d in (empty,nodeonly): assert shutil.which(tool,path=os.pathsep.join([str(d)]+os_dirs)) is None,(tool,d)
-JS={'gemini','pi','dsh','miniplayer'}
+JS={'gemini','pi','dsh','miniplayer','lmctl'}
 HERMES={'hermes'}
 def host_path(name):
  if name in HERMES: return None
