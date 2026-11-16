@@ -57,7 +57,11 @@ jobs:
             echo "@lmctl-ai/lminstall@${version} is already on npm; nothing to do"
             echo "todo=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          echo "todo=true" >> "$GITHUB_OUTPUT"; echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "version=$version" >> "$GITHUB_OUTPUT"
+          # an older release published late (a manual run for an old tag) must not take the latest dist-tag
+          current="$(npm view "@lmctl-ai/lminstall" dist-tags.latest 2>/dev/null || true)"
+          disttag=latest
+          if [ -n "$current" ] && [ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n1)" != "$version" ]; then disttag=backfill; fi
+          echo "todo=true" >> "$GITHUB_OUTPUT"; echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "version=$version" >> "$GITHUB_OUTPUT"; echo "disttag=$disttag" >> "$GITHUB_OUTPUT"
       - name: Download and check the release assets
         if: steps.release.outputs.todo == 'true'
         env:
@@ -82,6 +86,8 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --description "Install, upgrade and uninstall coding provider CLIs from their official channels" --target linux-x64=lminstall-linux-amd64 --target linux-arm64=lminstall-linux-arm64 --target darwin-x64=lminstall-darwin-amd64 --target darwin-arm64=lminstall-darwin-arm64 --target windows-x64=lminstall-windows-amd64.exe --target windows-arm64=lminstall-windows-arm64.exe | tee order.jsonl
       - name: Publish (platform packages first, launcher last)
         if: steps.release.outputs.todo == 'true'
+        env:
+          DIST_TAG: ${{ steps.release.outputs.disttag }}
         run: |
           set -euo pipefail
           while IFS= read -r line; do
@@ -90,7 +96,7 @@ jobs:
             version="$(node -p 'JSON.parse(process.argv[1]).version' "$line")"
             if npm view "${name}@${version}" version >/dev/null 2>&1; then echo "${name}@${version} already published"; continue; fi
             echo "publishing ${name}@${version}"
-            npm publish "./${dir#./}" --access public
+            npm publish "./${dir#./}" --access public --tag "$DIST_TAG"
           done < order.jsonl
       - name: Smoke test the published launcher
         if: steps.release.outputs.todo == 'true'
