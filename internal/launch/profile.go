@@ -322,6 +322,9 @@ func Render(p Profile, root, base, credential string) (map[string]string, map[st
 	native["home"], native["profile"], native["install"] = home, root, filepath.Join(p.InstallRoot, "providers", p.Provider)
 	for k, a := range p.Spec.Environment {
 		env[k] = expand(a, native)
+		if strings.HasPrefix(env[k], root) {
+			env[k] = filepath.Clean(env[k]) // {home}/x templates use one native separator
+		}
 	}
 	files := map[string]string{}
 	for _, f := range p.Spec.Files {
