@@ -914,7 +914,7 @@
             "reason": "Not qualified; no implicit backend fallback"
           }
         },
-        "npm_package": "miniplayer"
+        "npm_package": "@lmctl-ai/miniplayer"
       }
     },
     {
