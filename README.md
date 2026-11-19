@@ -1,5 +1,7 @@
 # lminstall
 
+Documentation: [Quick reference](https://www.lmctl.com/tools/lminstall/) · [LLM skill](https://www.lmctl.com/tools/lminstall/skill.html) · [Guide](https://www.lmctl.com/tools/lminstall/guide.html) · [Reference](https://www.lmctl.com/tools/lminstall/reference.html)
+
 A single static Go application to install, verify, upgrade and uninstall coding
 provider CLIs using their official distribution channels. **lminstall never shells
 out to install anything**: no npm, git, curl, tar, unzip, PowerShell, bash, uv or
