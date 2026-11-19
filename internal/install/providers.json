@@ -1283,6 +1283,82 @@
         },
         "npm_package": ""
       }
+    },
+    {
+      "id": "kimifix",
+      "binary": "kimi",
+      "source": "https://github.com/lmctl-ai/kimi-code",
+      "recipes": {
+        "linux": {
+          "channel": "release",
+          "repository": "lmctl-ai/kimi-code",
+          "asset": "kimi-code-linux-{assetarch}{archive}",
+          "archive_binary": "kimi",
+          "checksums": "SHA256SUMS",
+          "bin": "bin/kimi",
+          "bin_dir": "bin",
+          "update_url": "https://github.com/lmctl-ai/kimi-code/releases",
+          "env": {
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "KIMI_CODE_HOME": "{dir}/home/.kimi-code"
+          }
+        },
+        "darwin": {
+          "channel": "release",
+          "repository": "lmctl-ai/kimi-code",
+          "asset": "kimi-code-macos-{assetarch}{archive}",
+          "archive_binary": "kimi",
+          "checksums": "SHA256SUMS",
+          "bin": "bin/kimi",
+          "bin_dir": "bin",
+          "update_url": "https://github.com/lmctl-ai/kimi-code/releases",
+          "env": {
+            "HOME": "{dir}/home",
+            "USERPROFILE": "{dir}/home",
+            "LOCALAPPDATA": "{dir}/home/local",
+            "KIMI_CODE_HOME": "{dir}/home/.kimi-code"
+          }
+        }
+      },
+      "launch_config": {
+        "version": 1,
+        "backends": {
+          "mock": {
+            "supported": true,
+            "protocol": "openai-chat",
+            "base_shape": "v1",
+            "adapter": "kimi",
+            "adapter_version": 1,
+            "environment": {},
+            "files": [
+              {
+                "path": ".kimi-code/config.toml",
+                "format": "text",
+                "text": "default_model=\"mock\"\n[providers.mock]\ntype=\"openai\"\nbase_url={v1_json}\napi_key={credential_json}\n[models.mock]\nprovider=\"mock\"\nmodel={model_json}\nmax_context_size=128000\n"
+              }
+            ],
+            "argv_prefix": [],
+            "headers": {
+              "Authorization": "Bearer {credential}"
+            },
+            "remove_headers": [],
+            "model_default": "mock-agent",
+            "qualification": "wp129 mock 39/39; no arbitrary-tool or live certification",
+            "isolation_environment": []
+          },
+          "ollama-cloud": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          },
+          "ollama-local": {
+            "supported": false,
+            "reason": "Not qualified; no implicit backend fallback"
+          }
+        },
+        "npm_package": "@moonshot-ai/kimi-code"
+      }
     }
   ]
 }

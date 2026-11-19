@@ -122,7 +122,7 @@ func TestCatalogAndNoProductionCredentialFields(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(manifest.Providers) != 16 {
+	if len(manifest.Providers) != 17 {
 		t.Fatal(len(manifest.Providers))
 	}
 	for _, p := range manifest.Providers {
